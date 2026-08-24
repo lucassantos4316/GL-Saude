@@ -1,0 +1,40 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: #f7fbfb;
+  --foreground: #17343a;
+  --card: #ffffff;
+  --card-foreground: #17343a;
+  --popover: #ffffff;
+  --popover-foreground: #17343a;
+  --primary: #087a92;
+  --primary-foreground: #ffffff;
+  --secondary: #e7f7f5;
+  --secondary-foreground: #087a92;
+  --muted: #edf5f5;
+  --muted-foreground: #6c8185;
+  --accent: #dff6e8;
+  --accent-foreground: #20864b;
+  --destructive: #dc4b5b;
+  --border: #e5eeee;
+  --input: #e5eeee;
+  --ring: #18afa0;
+  --radius: 0.85rem;
+}
+
+* { border-color: var(--border); }
+html { font-family: 'DM Sans', sans-serif; background: var(--background); }
+body { margin: 0; min-width: 320px; background: var(--background); color: var(--foreground); }
+h1, h2, h3, h4, h5, h6 { font-family: 'Manrope', sans-serif; }
+button, a, input, select { -webkit-tap-highlight-color: transparent; }
+button { transition: transform 160ms cubic-bezier(.23,1,.32,1), background-color 160ms ease, color 160ms ease, border-color 160ms ease; }
+button:active { transform: scale(.98); }
+::selection { color: white; background: #18afa0; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}

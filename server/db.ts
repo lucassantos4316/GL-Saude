@@ -6,7 +6,6 @@ import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
-// Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
@@ -158,4 +157,3 @@ export async function createClinicalDocument(input: { patientId: number; profess
   return db.select().from(clinicalDocuments).where(and(eq(clinicalDocuments.patientId, input.patientId), eq(clinicalDocuments.title, input.title))).orderBy(desc(clinicalDocuments.id)).limit(1);
 }
 
-// TODO: add feature queries here as your schema grows.

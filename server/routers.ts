@@ -6,7 +6,6 @@ import { z } from "zod";
 import { confirmAppointmentPayment, createClinicalDocument, createHeldAppointment, listAllAppointments, listAppointmentsForPatient, listAppointmentsForProfessional, listClinicalDocumentsForPatient, listProfessionals } from "./db";
 
 export const appRouter = router({
-    // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
@@ -54,12 +53,6 @@ export const appRouter = router({
     confirmPayment: roleProcedure("patient", "operator").input(z.object({ appointmentId: z.number(), method: z.enum(["pix", "credit_card"]), amount: z.string(), gatewayReference: z.string().min(1) })).mutation(({ input }) => confirmAppointmentPayment(input.appointmentId, input.method, input.amount, input.gatewayReference)),
   }),
 
-  // TODO: add feature routers here, e.g.
-  // todo: router({
-  //   list: protectedProcedure.query(({ ctx }) =>
-  //     db.getUserTodos(ctx.user.id)
-  //   ),
-  // }),
 });
 
 export type AppRouter = typeof appRouter;

@@ -1,7 +1,3 @@
-/**
- * Base HTTP error class with status code.
- * Throw this from route handlers to send specific HTTP errors.
- */
 export class HttpError extends Error {
   constructor(
     public statusCode: number,
@@ -12,7 +8,6 @@ export class HttpError extends Error {
   }
 }
 
-// Convenience constructors
 export const BadRequestError = (msg: string) => new HttpError(400, msg);
 export const UnauthorizedError = (msg: string) => new HttpError(401, msg);
 export const ForbiddenError = (msg: string) => new HttpError(403, msg);

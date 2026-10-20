@@ -3,24 +3,13 @@ import { ENV } from "./env";
 
 export type HeartbeatJob = {
   name: string;
-  /**
-   * 6-field cron with seconds (`sec min hour dom mon dow`), UTC, min interval 60s.
-   * Use `0` for the seconds field — e.g. `"0 0 9 * * *"` is daily 09:00 UTC.
-   * See /home/ubuntu/skills/webdev-periodic-updates/SKILL.md.
-   */
   cron: string;
-  /** Callback path. MUST start with `/api/scheduled/`. */
   path: string;
   method?: "POST" | "PUT";
   payload?: unknown;
   description?: string;
 };
 
-/**
- * Update patch. All fields optional; unset = leave unchanged.
- * `enable`: true = resume, false = pause; omit = unchanged.
- * `name` is the (project, owner)-scope key and cannot be changed.
- */
 export type HeartbeatJobUpdate = Partial<Omit<HeartbeatJob, "name">> & {
   enable?: boolean;
 };
@@ -72,8 +61,6 @@ const callForge = async <T>(
     "content-type": "application/json",
     "connect-protocol-version": "1",
   };
-  // userSession is the decoded `app_session_id` cookie value (NOT the raw
-  // Cookie header). Empty string falls back to the project owner identity.
   if (userSession) {
     headers["x-manus-user-session"] = userSession;
   }
@@ -133,10 +120,6 @@ const validateCallbackPath = (path: string): void => {
   }
 };
 
-/**
- * Create a new HTTP cron job. Returns the assigned `taskUid` to persist on
- * your business row so callbacks can dereference it.
- */
 export async function createHeartbeatJob(
   job: HeartbeatJob,
   userSession: string
@@ -156,10 +139,6 @@ export async function createHeartbeatJob(
   );
 }
 
-/**
- * Update an existing cron located by `taskUid`. Only fields you pass in
- * `patch` are mutated. `enable` flips resume/pause; omit to leave alone.
- */
 export async function updateHeartbeatJob(
   taskUid: string,
   patch: HeartbeatJobUpdate,
@@ -182,7 +161,6 @@ export async function updateHeartbeatJob(
   );
 }
 
-/** Delete a cron located by `taskUid`. Idempotent on caller side. */
 export async function deleteHeartbeatJob(
   taskUid: string,
   userSession: string
@@ -190,14 +168,6 @@ export async function deleteHeartbeatJob(
   await callForge("DeleteHeartbeatJob", { taskUid }, userSession);
 }
 
-/**
- * List cron jobs owned by the resolved actor (end-user when `userSession`
- * is set, project owner otherwise) within the current project.
- *
- * `actorUserId` in the response echoes whose cron list you got back. End-users
- * cannot list other users' crons via this SDK; cross-user inspection is
- * owner-only via the sandbox CLI (`manus-heartbeat list --user-id <uid>`).
- */
 export async function listHeartbeatJobs(
   userSession: string,
   pagination?: { page?: number; pageSize?: number }

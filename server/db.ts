@@ -1,6 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, appointments, clinicalDocuments, notifications, payments, professionals, users } from "../drizzle/schema";
+import { InsertUser, appointments, notifications, payments, professionals, users } from "../drizzle/schema";
 import { buildAppointmentNotificationQueue } from "./notificationService";
 import { ENV } from './_core/env';
 
@@ -144,16 +144,4 @@ export async function listAllAppointments(clinicId?: number) {
   return clinicId ? db.select().from(appointments).where(eq(appointments.clinicId, clinicId)) : db.select().from(appointments);
 }
 
-export async function listClinicalDocumentsForPatient(patientId: number) {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(clinicalDocuments).where(eq(clinicalDocuments.patientId, patientId));
-}
-
-export async function createClinicalDocument(input: { patientId: number; professionalId: number; appointmentId?: number; type: "record" | "report" | "prescription" | "exam_request"; title: string; content: string }) {
-  const db = await getDb();
-  if (!db) throw new Error("Database unavailable");
-  await db.insert(clinicalDocuments).values(input);
-  return db.select().from(clinicalDocuments).where(and(eq(clinicalDocuments.patientId, input.patientId), eq(clinicalDocuments.title, input.title))).orderBy(desc(clinicalDocuments.id)).limit(1);
-}
 

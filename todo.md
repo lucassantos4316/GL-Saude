@@ -7,7 +7,7 @@
 - [ ] Redirecionar cada perfil ao respectivo painel após autenticação.
 - [ ] Implementar bloqueio temporário exatamente após 3 tentativas de login falhas.
 - [ ] Implementar recuperação de senha por e-mail com token de validade limitada.
-- [x] Criar modelo de dados para clínicas, profissionais, pacientes, especialidades, agendas, horários, agendamentos, pagamentos, documentos clínicos e notificações.
+- [x] Criar modelo de dados para clínicas, profissionais, pacientes, especialidades, agendas, horários, agendamentos, pagamentos e notificações.
 - [x] Implementar seleção de consulta médica ou exame.
 - [ ] Implementar busca de médico ou especialidade com filtros.
 - [x] Exibir perfil profissional com CRM, avaliações e valor.
@@ -17,7 +17,6 @@
 - [ ] Implementar fluxo de pagamento por Pix e cartão com confirmação antes do registro definitivo do agendamento.
 - [ ] Implementar histórico do paciente com status, cancelamento, reagendamento e política de reembolso.
 - [ ] Implementar painel do médico com agenda diária e semanal.
-- [ ] Implementar emissão de prontuário, laudo, receita e pedido de exame.
 - [ ] Implementar relatórios diários e semanais de consultas e pacientes.
 - [ ] Implementar painel do operador com agendamento em nome do paciente, cancelamento, reagendamento e visão da agenda da clínica.
 - [ ] Preparar notificações por e-mail para confirmação, cancelamento, lembrete de 24 horas e lembrete de 1 hora.
@@ -30,7 +29,7 @@
 
 - [ ] Implementar autenticação real por perfil com validação de credenciais, bloqueio persistente após 3 falhas e recuperação por e-mail/token.
 - [ ] Substituir mocks de agendamento por busca filtrável, calendário real, reserva persistente de 10 minutos e confirmação de pagamento no backend.
-- [ ] Implementar painéis funcionais de paciente, médico e operador com histórico, política de reembolso, agenda diária/semanal, documentos clínicos e relatórios reais.
+- [ ] Implementar painéis funcionais de paciente, médico e operador com histórico, política de reembolso, agenda diária/semanal e relatórios reais.
 - [x] Manter WhatsApp fora do escopo ativo; notificações atuais permanecem preparadas apenas para e-mail.
 - [ ] Adicionar testes de integração dos fluxos críticos e cobertura explícita de loading, erro, vazio e acessibilidade.
 

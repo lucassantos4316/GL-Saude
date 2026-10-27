@@ -4,10 +4,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { Login } from "../client/src/pages/Home";
 
 describe("GGL saude login UI", () => {
-  it("renders the three profile options and the entry action", () => {
+  it("renders the entry action without a profile selector", () => {
     const html = renderToStaticMarkup(React.createElement(Login, { onEnter: () => undefined }));
-    expect(html).toContain("Perfil de acesso");
-    expect(html).toContain("Entrar na GGL saude");
+    expect(html).not.toContain("Perfil de acesso");
+    expect(html).toContain(">Entrar <");
     expect(html).toContain("Modo demonstração");
   });
 });

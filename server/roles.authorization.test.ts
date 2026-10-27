@@ -33,7 +33,7 @@ describe("GGL saude role authorization", () => {
     expect(patient.label).toBe("Paciente");
     expect(patient.permissions).toContain("book_appointments");
     expect(doctor.label).toBe("Médico");
-    expect(doctor.permissions).toContain("manage_clinical_documents");
+    expect(doctor.permissions).not.toContain("manage_clinical_documents");
     expect(operator.label).toBe("Operador");
     expect(operator.permissions).toContain("manage_clinic_schedule");
   });
@@ -60,7 +60,6 @@ describe("GGL saude role authorization", () => {
     const operator = appRouter.createCaller(context("operator"));
 
     await expect(patient.clinic.myAppointments()).resolves.toBeInstanceOf(Array);
-    await expect(patient.patient.documents()).resolves.toBeInstanceOf(Array);
     await expect(doctor.doctor.agenda({ professionalId: 1 })).resolves.toBeInstanceOf(Array);
     await expect(operator.operator.clinicAgenda()).resolves.toBeInstanceOf(Array);
   });

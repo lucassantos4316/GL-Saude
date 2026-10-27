@@ -3,7 +3,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, roleProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { confirmAppointmentPayment, createClinicalDocument, createHeldAppointment, listAllAppointments, listAppointmentsForPatient, listAppointmentsForProfessional, listClinicalDocumentsForPatient, listProfessionals } from "./db";
+import { confirmAppointmentPayment, createHeldAppointment, listAllAppointments, listAppointmentsForPatient, listAppointmentsForProfessional, listProfessionals } from "./db";
 
 export const appRouter = router({
   system: systemRouter,
@@ -23,7 +23,7 @@ export const appRouter = router({
       role: ctx.user.role,
       label: ctx.user.role === "doctor" ? "Médico" : ctx.user.role === "operator" ? "Operador" : "Paciente",
       permissions: ctx.user.role === "doctor"
-        ? ["view_own_schedule", "manage_clinical_documents", "view_reports"]
+        ? ["view_own_schedule", "view_reports"]
         : ctx.user.role === "operator"
           ? ["manage_clinic_schedule", "book_for_patient", "reschedule_appointments", "cancel_appointments"]
           : ["search_professionals", "book_appointments", "pay_appointments", "view_own_history", "cancel_own_appointments"],
@@ -31,9 +31,8 @@ export const appRouter = router({
   }),
 
   doctor: router({
-    dashboard: roleProcedure("doctor").query(({ ctx }) => ({ role: ctx.user.role, title: "Painel do Médico", capabilities: ["agenda diária e semanal", "prontuário eletrônico", "laudo", "receita", "pedido de exame", "relatórios"] })),
+    dashboard: roleProcedure("doctor").query(({ ctx }) => ({ role: ctx.user.role, title: "Painel do Médico", capabilities: ["agenda diária e semanal", "relatórios"] })),
     agenda: roleProcedure("doctor").input(z.object({ professionalId: z.number() })).query(({ input }) => listAppointmentsForProfessional(input.professionalId)),
-    createDocument: roleProcedure("doctor").input(z.object({ patientId: z.number(), professionalId: z.number(), appointmentId: z.number().optional(), type: z.enum(["record", "report", "prescription", "exam_request"]), title: z.string().min(1), content: z.string().min(1) })).mutation(({ input }) => createClinicalDocument(input)),
   }),
 
   operator: router({
@@ -43,7 +42,6 @@ export const appRouter = router({
 
   patient: router({
     dashboard: roleProcedure("patient").query(({ ctx }) => ({ role: ctx.user.role, title: "Painel do Paciente", capabilities: ["buscar profissionais", "agendar consulta ou exame", "pagar", "consultar histórico", "cancelar", "reagendar"] })),
-    documents: roleProcedure("patient").query(({ ctx }) => listClinicalDocumentsForPatient(ctx.user.id)),
   }),
 
   clinic: router({

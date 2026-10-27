@@ -89,6 +89,26 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+export async function updateUserProfile(userId: number, name: string, email: string | null) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+
+  await db.update(users).set({ name, email }).where(eq(users.id, userId));
+  const result = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      role: users.role,
+      createdAt: users.createdAt,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  return result[0];
+}
+
 export async function listProfessionals(filters?: { specialty?: string; clinicId?: number }) {
   const db = await getDb();
   if (!db) return [];
@@ -143,5 +163,4 @@ export async function listAllAppointments(clinicId?: number) {
   if (!db) return [];
   return clinicId ? db.select().from(appointments).where(eq(appointments.clinicId, clinicId)) : db.select().from(appointments);
 }
-
 

@@ -2,8 +2,9 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, roleProcedure, router } from "./_core/trpc";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { confirmAppointmentPayment, createHeldAppointment, listAllAppointments, listAppointmentsForPatient, listAppointmentsForProfessional, listProfessionals } from "./db";
+import { confirmAppointmentPayment, createHeldAppointment, listAllAppointments, listAppointmentsForPatient, listAppointmentsForProfessional, listProfessionals, updateUserProfile } from "./db";
 
 export const appRouter = router({
   system: systemRouter,
@@ -16,6 +17,31 @@ export const appRouter = router({
         success: true,
       } as const;
     }),
+  }),
+
+  profile: router({
+    me: protectedProcedure.query(({ ctx }) => ({
+      id: ctx.user.id,
+      name: ctx.user.name,
+      email: ctx.user.email,
+      role: ctx.user.role,
+      createdAt: ctx.user.createdAt,
+    })),
+    update: protectedProcedure
+      .input(z.object({
+        name: z.string().trim().min(1).max(255),
+        email: z.string().trim().max(320).pipe(z.union([z.email(), z.literal("")])),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const updated = await updateUserProfile(ctx.user.id, input.name, input.email || null);
+        if (!updated) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Não foi possível localizar o perfil para atualizar.",
+          });
+        }
+        return updated;
+      }),
   }),
 
   roles: router({

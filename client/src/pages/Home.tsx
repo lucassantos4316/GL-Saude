@@ -4,6 +4,8 @@ import { useLocation, useRoute } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { startLogin } from "@/const";
 import { trpc } from "@/lib/trpc";
+import { ProfileNavigation, ProfilePage } from "@/components/ProfilePages";
+import type { ProfileSection } from "@/components/ProfilePages";
 import { clearAuthState, dashboardPath, isAppRole, persistSelectedRole } from "@shared/authFlow";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/ui/button";
@@ -57,10 +59,26 @@ export function Login({ onEnter }: { onEnter: (role: Role) => void }) {
             {locked && <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">Conta temporariamente bloqueada após 3 tentativas. Tente novamente em 15 minutos.</div>}
             <Button type="button" className="h-12 w-full bg-[#087A92] text-base hover:bg-[#076b80]" disabled={locked} onClick={() => { localStorage.setItem("GGL saude-role", "patient"); onEnter("patient"); }}>Entrar <ChevronRight className="ml-2 h-4 w-4" /></Button>
             <p className="text-center text-xs text-slate-400">Ambiente seguro com autenticação protegida</p>
-            <button onClick={startLogin} className="w-full rounded-xl border border-[#087A92]/20 py-3 text-sm font-semibold text-[#087A92] hover:bg-[#087A92]/5">Entrar com conta institucional</button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={startLogin}
+              className="h-12 w-full border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 48 48"
+                className="mr-2 h-5 w-5"
+              >
+                <path fill="#4285F4" d="M43.6 24.5c0-1.4-.1-2.8-.4-4.1H24v7.8h11a9.4 9.4 0 0 1-4.1 6.2v5.1h6.6c3.9-3.6 6.1-8.8 6.1-15Z" />
+                <path fill="#34A853" d="M24 44c5.5 0 10.1-1.8 13.5-4.9l-6.6-5.1c-1.8 1.2-4.1 2-6.9 2-5.3 0-9.8-3.6-11.4-8.4H5.8v5.2C9.2 39.5 16.1 44 24 44Z" />
+                <path fill="#FBBC05" d="M12.6 27.6a12 12 0 0 1 0-7.2v-5.2H5.8a20 20 0 0 0 0 17.6l6.8-5.2Z" />
+                <path fill="#EA4335" d="M24 12c3 0 5.7 1 7.8 3.1l5.8-5.8C34.1 6 29.5 4 24 4 16.1 4 9.2 8.5 5.8 15.2l6.8 5.2C14.2 15.6 18.7 12 24 12Z" />
+              </svg>
+              Continuar com Google
+            </Button>
           </CardContent></Card>
-          <p className="mt-7 text-center text-sm text-slate-500">Ainda não possui uma conta? <button onClick={() => toast.info("O cadastro será disponibilizado pela clínica.")} className="font-semibold text-[#087A92]">Solicitar acesso</button></p>
-          <div className="mt-8 rounded-2xl border border-[#18AFA0]/15 bg-[#18AFA0]/5 p-4 text-xs leading-relaxed text-[#087A92]"><strong>Modo demonstração:</strong> clique em entrar para explorar o painel do paciente.</div>
+          <p className="mt-7 text-center text-sm text-slate-500">Ainda não possui uma conta? <button onClick={() => toast.info("O cadastro estará disponível após a configuração do banco de dados.")} className="font-semibold text-[#087A92]">Cadastre-se</button></p>
         </div>
       </section>
     </div>
@@ -110,8 +128,31 @@ function PatientHistory() {
 function AppContent({ role, onExit }: { role: Role; onExit: () => void }) {
   const [active, setActive] = useState("overview");
   const content = useMemo(() => active, [active]);
-  const view = content === "overview" ? <Overview role={role} go={setActive} /> : content === "history" ? <PatientHistory /> : content === "schedule" && role === "patient" ? <Booking onDone={() => setActive("overview")} /> : <WorkspacePanel role={role} active={content} />;
-  return <Shell role={role} onExit={onExit} active={active} setActive={setActive}>{view}</Shell>;
+  const profileSections: ProfileSection[] = ["profile", "edit-profile", "my-data"];
+  const profileSection = profileSections.includes(content as ProfileSection)
+    ? (content as ProfileSection)
+    : null;
+  const view = profileSection ? (
+    <ProfilePage section={profileSection} />
+  ) : content === "overview" ? (
+    <Overview role={role} go={setActive} />
+  ) : content === "history" ? (
+    <PatientHistory />
+  ) : content === "schedule" && role === "patient" ? (
+    <Booking onDone={() => setActive("overview")} />
+  ) : (
+    <WorkspacePanel role={role} active={content} />
+  );
+
+  return (
+    <Shell role={role} onExit={onExit} active={active} setActive={setActive}>
+      <ProfileNavigation
+        active={profileSection}
+        onSelect={(section) => setActive(section)}
+      />
+      {view}
+    </Shell>
+  );
 }
 
 export default function Home() {

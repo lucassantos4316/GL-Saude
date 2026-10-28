@@ -1,22 +1,13 @@
-import { COOKIE_NAME } from "@shared/const";
-import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, roleProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { confirmAppointmentPayment, createHeldAppointment, listAllAppointments, listAppointmentsForPatient, listAppointmentsForProfessional, listProfessionals, updateUserProfile } from "./db";
+import { createHeldAppointment, deleteHeldAppointment, listAllAppointments, listAppointmentsForPatient, listAppointmentsForProfessional, listProfessionals, updateHeldAppointment, updateUserProfile } from "./db";
 
 export const appRouter = router({
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
-    logout: publicProcedure.mutation(({ ctx }) => {
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return {
-        success: true,
-      } as const;
-    }),
   }),
 
   profile: router({
@@ -33,7 +24,7 @@ export const appRouter = router({
         email: z.string().trim().max(320).pipe(z.union([z.email(), z.literal("")])),
       }))
       .mutation(async ({ ctx, input }) => {
-        const updated = await updateUserProfile(ctx.user.id, input.name, input.email || null);
+        const updated = await updateUserProfile(ctx.supabase, ctx.user.id, input.name, input.email || null);
         if (!updated) {
           throw new TRPCError({
             code: "NOT_FOUND",
@@ -58,12 +49,12 @@ export const appRouter = router({
 
   doctor: router({
     dashboard: roleProcedure("doctor").query(({ ctx }) => ({ role: ctx.user.role, title: "Painel do Médico", capabilities: ["agenda diária e semanal", "relatórios"] })),
-    agenda: roleProcedure("doctor").input(z.object({ professionalId: z.number() })).query(({ input }) => listAppointmentsForProfessional(input.professionalId)),
+    agenda: roleProcedure("doctor").query(({ ctx }) => listAppointmentsForProfessional(ctx.supabase, ctx.user.id)),
   }),
 
   operator: router({
-    dashboard: roleProcedure("operator").query(({ ctx }) => ({ role: ctx.user.role, title: "Painel do Operador", capabilities: ["agendar em nome do paciente", "cancelar", "reagendar", "visualizar agenda da clínica"] })),
-    clinicAgenda: roleProcedure("operator").input(z.object({ clinicId: z.number().optional() }).optional()).query(({ input }) => listAllAppointments(input?.clinicId)),
+    dashboard: roleProcedure("operator", "admin").query(({ ctx }) => ({ role: ctx.user.role, title: "Painel do Operador", capabilities: ["agendar em nome do paciente", "cancelar", "reagendar", "visualizar agenda da clínica"] })),
+    clinicAgenda: roleProcedure("operator", "admin").input(z.object({ clinicId: z.string().uuid().optional() }).optional()).query(({ ctx, input }) => listAllAppointments(ctx.supabase, input?.clinicId ?? ctx.user.clinicId)),
   }),
 
   patient: router({
@@ -71,10 +62,11 @@ export const appRouter = router({
   }),
 
   clinic: router({
-    professionals: publicProcedure.input(z.object({ specialty: z.string().optional(), clinicId: z.number().optional() }).optional()).query(({ input }) => listProfessionals(input)),
-    myAppointments: roleProcedure("patient").query(({ ctx }) => listAppointmentsForPatient(ctx.user.id)),
-    holdSlot: roleProcedure("patient", "operator").input(z.object({ professionalId: z.number(), clinicId: z.number(), kind: z.enum(["consultation", "exam"]), startsAt: z.coerce.date(), endsAt: z.coerce.date() })).mutation(({ ctx, input }) => createHeldAppointment({ ...input, patientId: ctx.user.id })),
-    confirmPayment: roleProcedure("patient", "operator").input(z.object({ appointmentId: z.number(), method: z.enum(["pix", "credit_card"]), amount: z.string(), gatewayReference: z.string().min(1) })).mutation(({ input }) => confirmAppointmentPayment(input.appointmentId, input.method, input.amount, input.gatewayReference)),
+    professionals: publicProcedure.input(z.object({ specialty: z.string().optional(), clinicId: z.string().uuid().optional() }).optional()).query(({ ctx, input }) => listProfessionals(ctx.supabase, input)),
+    myAppointments: roleProcedure("patient").query(({ ctx }) => listAppointmentsForPatient(ctx.supabase, ctx.user.id)),
+    holdSlot: roleProcedure("patient").input(z.object({ professionalId: z.string().uuid(), clinicId: z.string().uuid(), kind: z.enum(["consultation", "exam"]), startsAt: z.coerce.date(), endsAt: z.coerce.date() })).mutation(({ ctx, input }) => createHeldAppointment(ctx.supabase, input)),
+    updateHeldSlot: roleProcedure("patient").input(z.object({ appointmentId: z.string().uuid(), kind: z.enum(["consultation", "exam"]), startsAt: z.coerce.date(), endsAt: z.coerce.date() })).mutation(({ ctx, input }) => updateHeldAppointment(ctx.supabase, input.appointmentId, input)),
+    deleteHeldSlot: roleProcedure("patient").input(z.object({ appointmentId: z.string().uuid() })).mutation(({ ctx, input }) => deleteHeldAppointment(ctx.supabase, input.appointmentId)),
   }),
 
 });

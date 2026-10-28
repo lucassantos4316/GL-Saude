@@ -1,30 +1,51 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("./db", () => ({
+  createHeldAppointment: vi.fn(async () => "1c5e1f4a-0c25-42df-9ed0-98a5bb8cfd28"),
+  deleteHeldAppointment: vi.fn(async () => undefined),
+  getUserProfile: vi.fn(),
+  listAllAppointments: vi.fn(async () => []),
+  listAppointmentsForPatient: vi.fn(async () => []),
+  listAppointmentsForProfessional: vi.fn(async () => []),
+  listProfessionals: vi.fn(async () => []),
+  updateHeldAppointment: vi.fn(async () => "1c5e1f4a-0c25-42df-9ed0-98a5bb8cfd28"),
+  updateUserProfile: vi.fn(),
+}));
+
+import { createHeldAppointment } from "./db";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 
 type Role = "patient" | "doctor" | "operator";
+const ids = {
+  patient: "61c39c17-7401-41e7-9e2d-7bed9ade60a0",
+  doctor: "3e48090f-9854-4a2f-8984-1339d4c0ca52",
+  operator: "091d45df-c5dc-4ed8-b160-525148eb7123",
+};
 
 function context(role: Role): TrpcContext {
   return {
     user: {
-      id: role === "patient" ? 1 : role === "doctor" ? 2 : 3,
-      openId: `${role}-test`,
+      id: ids[role],
       email: `${role}@example.com`,
       name: role,
-      loginMethod: "test",
       role,
+      clinicId: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       lastSignedIn: new Date(),
-      failedLoginAttempts: 0,
-      lockedUntil: null,
     },
+    supabase: {} as TrpcContext["supabase"],
     req: { protocol: "https", headers: {} } as TrpcContext["req"],
     res: {} as TrpcContext["res"],
   };
 }
 
-describe("GGL saude role authorization", () => {
+describe("GL Saúde role authorization", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("exposes the correct capabilities for each role", async () => {
     const patient = await appRouter.createCaller(context("patient")).roles.current();
     const doctor = await appRouter.createCaller(context("doctor")).roles.current();
@@ -54,26 +75,35 @@ describe("GGL saude role authorization", () => {
     await expect(operator.operator.dashboard()).resolves.toMatchObject({ role: "operator" });
   });
 
-  it("allows each role to access its read-only protected resources", async () => {
+  it("scopes appointment reads through the authenticated Supabase client", async () => {
     const patient = appRouter.createCaller(context("patient"));
     const doctor = appRouter.createCaller(context("doctor"));
     const operator = appRouter.createCaller(context("operator"));
 
-    await expect(patient.clinic.myAppointments()).resolves.toBeInstanceOf(Array);
-    await expect(doctor.doctor.agenda({ professionalId: 1 })).resolves.toBeInstanceOf(Array);
-    await expect(operator.operator.clinicAgenda()).resolves.toBeInstanceOf(Array);
+    await expect(patient.clinic.myAppointments()).resolves.toEqual([]);
+    await expect(doctor.doctor.agenda()).resolves.toEqual([]);
+    await expect(operator.operator.clinicAgenda()).resolves.toEqual([]);
   });
 
-  it("protects patient booking and payment procedures from doctors and operators", async () => {
+  it("restricts booking and appointment mutation to patient role", async () => {
+    const patient = appRouter.createCaller(context("patient"));
     const doctor = appRouter.createCaller(context("doctor"));
     const operator = appRouter.createCaller(context("operator"));
-    const input = { professionalId: 1, clinicId: 1, kind: "consultation" as const, startsAt: new Date(), endsAt: new Date() };
-    const payment = { appointmentId: 1, method: "pix" as const, amount: "100.00", gatewayReference: "test" };
+    const input = {
+      professionalId: "3e48090f-9854-4a2f-8984-1339d4c0ca52",
+      clinicId: "091d45df-c5dc-4ed8-b160-525148eb7123",
+      kind: "consultation" as const,
+      startsAt: new Date(Date.now() + 60 * 60 * 1000),
+      endsAt: new Date(Date.now() + 90 * 60 * 1000),
+    };
 
+    await expect(patient.clinic.holdSlot(input)).resolves.toBeTruthy();
+    expect(createHeldAppointment).toHaveBeenCalled();
     for (const caller of [doctor, operator]) {
-      await expect(caller.clinic.myAppointments()).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expect(caller.clinic.holdSlot(input)).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expect(
+        caller.clinic.deleteHeldSlot({ appointmentId: input.professionalId })
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
     }
-    await expect(doctor.clinic.holdSlot(input)).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(doctor.clinic.confirmPayment(payment)).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });

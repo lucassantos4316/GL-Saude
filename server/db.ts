@@ -1,166 +1,155 @@
-import { and, desc, eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, appointments, notifications, payments, professionals, users } from "../drizzle/schema";
-import { buildAppointmentNotificationQueue } from "./notificationService";
-import { ENV } from './_core/env';
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { User } from "../shared/types";
+import type { Database } from "../client/src/lib/database.types";
 
-let _db: ReturnType<typeof drizzle> | null = null;
+type RequestSupabase = SupabaseClient<Database>;
+type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 
-export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
-    try {
-      _db = drizzle(process.env.DATABASE_URL);
-    } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
-      _db = null;
-    }
+function toUser(profile: ProfileRow): User {
+  return {
+    id: profile.id,
+    name: profile.name,
+    email: profile.email,
+    role: profile.role,
+    clinicId: profile.clinic_id,
+    createdAt: new Date(profile.created_at),
+    updatedAt: new Date(profile.updated_at),
+    lastSignedIn: new Date(profile.last_signed_in_at),
+  };
+}
+
+export async function getUserProfile(
+  supabase: RequestSupabase,
+  userId: string
+): Promise<User | null> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? toUser(data) : null;
+}
+
+export async function updateUserProfile(
+  supabase: RequestSupabase,
+  userId: string,
+  name: string,
+  email: string | null
+): Promise<User | null> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({ name, email })
+    .eq("id", userId)
+    .select("*")
+    .maybeSingle();
+  if (error) throw error;
+  return data ? toUser(data) : null;
+}
+
+export async function listProfessionals(
+  supabase: RequestSupabase,
+  filters?: { specialty?: string; clinicId?: string }
+) {
+  let query = supabase.from("professionals").select("*").eq("active", true);
+  if (filters?.specialty) query = query.eq("specialty", filters.specialty);
+  if (filters?.clinicId) query = query.eq("clinic_id", filters.clinicId);
+  const { data, error } = await query.order("specialty");
+  if (error) throw error;
+  return data;
+}
+
+export async function listAppointmentsForPatient(
+  supabase: RequestSupabase,
+  patientId: string
+) {
+  const { data, error } = await supabase
+    .from("appointments")
+    .select("*")
+    .eq("patient_id", patientId)
+    .order("starts_at", { ascending: true });
+  if (error) throw error;
+  return data;
+}
+
+export async function createHeldAppointment(
+  supabase: RequestSupabase,
+  input: {
+    professionalId: string;
+    clinicId: string;
+    kind: "consultation" | "exam";
+    startsAt: Date;
+    endsAt: Date;
   }
-  return _db;
+) {
+  const { data, error } = await supabase.rpc("create_held_appointment", {
+    p_professional_id: input.professionalId,
+    p_clinic_id: input.clinicId,
+    p_kind: input.kind,
+    p_starts_at: input.startsAt.toISOString(),
+    p_ends_at: input.endsAt.toISOString(),
+  });
+  if (error) throw error;
+  return data;
 }
 
-export async function upsertUser(user: InsertUser): Promise<void> {
-  if (!user.openId) {
-    throw new Error("User openId is required for upsert");
+export async function updateHeldAppointment(
+  supabase: RequestSupabase,
+  appointmentId: string,
+  changes: {
+    kind: "consultation" | "exam";
+    startsAt: Date;
+    endsAt: Date;
   }
-
-  const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot upsert user: database not available");
-    return;
-  }
-
-  try {
-    const values: InsertUser = {
-      openId: user.openId,
-    };
-    const updateSet: Record<string, unknown> = {};
-
-    const textFields = ["name", "email", "loginMethod"] as const;
-    type TextField = (typeof textFields)[number];
-
-    const assignNullable = (field: TextField) => {
-      const value = user[field];
-      if (value === undefined) return;
-      const normalized = value ?? null;
-      values[field] = normalized;
-      updateSet[field] = normalized;
-    };
-
-    textFields.forEach(assignNullable);
-
-    if (user.lastSignedIn !== undefined) {
-      values.lastSignedIn = user.lastSignedIn;
-      updateSet.lastSignedIn = user.lastSignedIn;
-    }
-    if (user.role !== undefined) {
-      values.role = user.role;
-      updateSet.role = user.role;
-    } else if (user.openId === ENV.ownerOpenId) {
-      values.role = 'admin';
-      updateSet.role = 'admin';
-    }
-
-    if (!values.lastSignedIn) {
-      values.lastSignedIn = new Date();
-    }
-
-    if (Object.keys(updateSet).length === 0) {
-      updateSet.lastSignedIn = new Date();
-    }
-
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
-      set: updateSet,
-    });
-  } catch (error) {
-    console.error("[Database] Failed to upsert user:", error);
-    throw error;
-  }
+) {
+  const { data, error } = await supabase.rpc("reschedule_held_appointment", {
+    p_appointment_id: appointmentId,
+    p_kind: changes.kind,
+    p_starts_at: changes.startsAt.toISOString(),
+    p_ends_at: changes.endsAt.toISOString(),
+  });
+  if (error) throw error;
+  return data;
 }
 
-export async function getUserByOpenId(openId: string) {
-  const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot get user: database not available");
-    return undefined;
-  }
-
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-
-  return result.length > 0 ? result[0] : undefined;
+export async function deleteHeldAppointment(
+  supabase: RequestSupabase,
+  appointmentId: string
+) {
+  const { error } = await supabase
+    .from("appointments")
+    .delete()
+    .eq("id", appointmentId);
+  if (error) throw error;
 }
 
-export async function updateUserProfile(userId: number, name: string, email: string | null) {
-  const db = await getDb();
-  if (!db) throw new Error("Database unavailable");
+export async function listAppointmentsForProfessional(
+  supabase: RequestSupabase,
+  userId: string
+) {
+  const { data: professionals, error: professionalsError } = await supabase
+    .from("professionals")
+    .select("id")
+    .eq("user_id", userId);
+  if (professionalsError) throw professionalsError;
+  if (professionals.length === 0) return [];
 
-  await db.update(users).set({ name, email }).where(eq(users.id, userId));
-  const result = await db
-    .select({
-      id: users.id,
-      name: users.name,
-      email: users.email,
-      role: users.role,
-      createdAt: users.createdAt,
-    })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-
-  return result[0];
+  const { data, error } = await supabase
+    .from("appointments")
+    .select("*")
+    .in("professional_id", professionals.map((professional) => professional.id))
+    .order("starts_at", { ascending: true });
+  if (error) throw error;
+  return data;
 }
 
-export async function listProfessionals(filters?: { specialty?: string; clinicId?: number }) {
-  const db = await getDb();
-  if (!db) return [];
-  const conditions = [];
-  if (filters?.specialty) conditions.push(eq(professionals.specialty, filters.specialty));
-  if (filters?.clinicId) conditions.push(eq(professionals.clinicId, filters.clinicId));
-  return db.select().from(professionals).where(conditions.length ? and(...conditions) : undefined);
+export async function listAllAppointments(
+  supabase: RequestSupabase,
+  clinicId?: string | null
+) {
+  let query = supabase.from("appointments").select("*");
+  if (clinicId) query = query.eq("clinic_id", clinicId);
+  const { data, error } = await query.order("starts_at", { ascending: true });
+  if (error) throw error;
+  return data;
 }
-
-export async function listAppointmentsForPatient(patientId: number) {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(appointments).where(eq(appointments.patientId, patientId));
-}
-
-export async function createHeldAppointment(input: {
-  patientId: number;
-  professionalId: number;
-  clinicId: number;
-  kind: "consultation" | "exam";
-  startsAt: Date;
-  endsAt: Date;
-}) {
-  const db = await getDb();
-  if (!db) throw new Error("Database unavailable");
-  const holdExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
-  await db.insert(appointments).values({ ...input, status: "held", holdExpiresAt });
-  const created = await db.select().from(appointments).where(and(eq(appointments.patientId, input.patientId), eq(appointments.startsAt, input.startsAt))).orderBy(desc(appointments.id)).limit(1);
-  return created[0];
-}
-
-export async function confirmAppointmentPayment(appointmentId: number, method: "pix" | "credit_card", amount: string, gatewayReference: string) {
-  const db = await getDb();
-  if (!db) throw new Error("Database unavailable");
-  await db.insert(payments).values({ appointmentId, method, amount, gatewayReference, status: "confirmed", confirmedAt: new Date() });
-  await db.update(appointments).set({ status: "confirmed" }).where(eq(appointments.id, appointmentId));
-  const confirmed = (await db.select().from(appointments).where(eq(appointments.id, appointmentId)).limit(1))[0];
-  if (confirmed) {
-    await db.insert(notifications).values(buildAppointmentNotificationQueue({ userId: confirmed.patientId, appointmentId: confirmed.id, startsAt: confirmed.startsAt }));
-  }
-  return confirmed ? [confirmed] : [];
-}
-
-export async function listAppointmentsForProfessional(professionalId: number) {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(appointments).where(eq(appointments.professionalId, professionalId));
-}
-
-export async function listAllAppointments(clinicId?: number) {
-  const db = await getDb();
-  if (!db) return [];
-  return clinicId ? db.select().from(appointments).where(eq(appointments.clinicId, clinicId)) : db.select().from(appointments);
-}
-

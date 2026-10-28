@@ -100,10 +100,10 @@ export function ProfilePage({ section }: { section: ProfileSection }) {
         <CardContent className="space-y-4 p-6">
           <p className="font-semibold">Não foi possível carregar seu perfil.</p>
           <p className="text-sm text-slate-500">
-            Entre com sua conta institucional para consultar e atualizar os dados da sua conta.
+            Entre com sua conta para consultar e atualizar os dados do perfil.
           </p>
           <Button type="button" onClick={startLogin} className="bg-[#087A92] hover:bg-[#076b80]">
-            Entrar com conta institucional
+            Entrar
           </Button>
         </CardContent>
       </Card>
@@ -164,7 +164,7 @@ export function ProfilePage({ section }: { section: ProfileSection }) {
                   aria-invalid={Boolean(updateProfile.error)}
                 />
                 <p className="text-xs text-slate-500">
-                  Deixe em branco se não quiser informar um e-mail.
+                  E-mail de contato do perfil; ele não altera o e-mail usado para entrar.
                 </p>
               </div>
               {updateProfile.error && (

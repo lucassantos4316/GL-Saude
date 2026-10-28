@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import {
-  ArrowRight,
   Building2,
   HeartPulse,
   MapPin,
@@ -75,9 +74,11 @@ export const healthcareUnits: HealthcareUnit[] = [
 export default function ClinicHub({
   userName,
   onSelect,
+  onBackToLogin,
 }: {
   userName: string;
   onSelect: (unit: HealthcareUnit) => void;
+  onBackToLogin: () => void;
 }) {
   const [query, setQuery] = useState("");
   const filteredUnits = useMemo(() => {
@@ -101,9 +102,17 @@ export default function ClinicHub({
       <header className="border-b border-slate-100 bg-white">
         <div className="mx-auto flex h-[76px] max-w-7xl items-center justify-between px-5 sm:px-8">
           <BrandLogo />
-          <div className="hidden items-center gap-2 rounded-full bg-[#e7f7f5] px-4 py-2 text-sm font-medium text-[#087A92] sm:flex">
-            <HeartPulse className="h-4 w-4" />
-            Cuidado conectado
+          <div className="flex items-center gap-3">
+            <div className="hidden items-center gap-2 rounded-full bg-[#e7f7f5] px-4 py-2 text-sm font-medium text-[#087A92] sm:flex">
+              <HeartPulse className="h-4 w-4" />
+              Cuidado conectado
+            </div>
+            <Button
+              onClick={onBackToLogin}
+              className="h-10 bg-[#087A92] px-4 text-white hover:bg-[#076b80]"
+            >
+              Voltar ao login
+            </Button>
           </div>
         </div>
       </header>
@@ -207,10 +216,9 @@ export default function ClinicHub({
                     </div>
                     <Button
                       onClick={() => onSelect(unit)}
-                      className="mt-auto h-11 w-full justify-between bg-[#087A92] px-4 hover:bg-[#076b80]"
+                      className="mt-auto h-11 w-full bg-[#087A92] px-4 text-white transition-transform hover:scale-[1.03] hover:bg-[#076b80]"
                     >
                       Acessar unidade
-                      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                     </Button>
                   </CardContent>
                 </Card>

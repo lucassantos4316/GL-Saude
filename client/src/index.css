@@ -32,6 +32,8 @@ body { margin: 0; min-width: 320px; background: var(--background); color: var(--
 h1, h2, h3, h4, h5, h6 { font-family: 'Manrope', sans-serif; }
 button, a, input, select { -webkit-tap-highlight-color: transparent; }
 button { transition: transform 160ms cubic-bezier(.23,1,.32,1), background-color 160ms ease, color 160ms ease, border-color 160ms ease; }
+button[class*="bg-[#087A92]"] { color: #ffffff; }
+button[class*="bg-[#087A92]"]:hover:not(:active) { transform: scale(1.03); }
 button:active { transform: scale(.98); }
 ::selection { color: white; background: #18afa0; }
 

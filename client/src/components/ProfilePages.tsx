@@ -46,7 +46,7 @@ export function ProfileNavigation({
             onClick={() => onSelect(section.id)}
             className={
               active === section.id
-                ? "bg-[#087A92] hover:bg-[#076b80]"
+                ? "bg-[#087A92] text-white hover:bg-[#076b80]"
                 : "border-slate-200"
             }
           >

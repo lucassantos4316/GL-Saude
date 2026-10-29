@@ -9,6 +9,7 @@ export type NewAppointment = {
   kind: "consultation" | "exam";
   startsAt: string;
   endsAt: string;
+  patientProfileId: string;
 };
 
 export async function createAppointment(input: NewAppointment): Promise<string> {
@@ -18,6 +19,7 @@ export async function createAppointment(input: NewAppointment): Promise<string> 
     p_kind: input.kind,
     p_starts_at: input.startsAt,
     p_ends_at: input.endsAt,
+    p_patient_profile_id: input.patientProfileId,
   });
   if (error) throw error;
   return data;

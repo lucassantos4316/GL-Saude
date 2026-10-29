@@ -26,6 +26,7 @@ const statusLabels: Record<string, string> = {
 export default function PatientAppointments() {
   const utils = trpc.useUtils();
   const appointments = trpc.clinic.myAppointments.useQuery();
+  const patientProfiles = trpc.patientProfiles.list.useQuery();
   const [reschedulingId, setReschedulingId] = useState<string | null>(null);
   const [newStart, setNewStart] = useState("");
 
@@ -94,6 +95,9 @@ export default function PatientAppointments() {
             </p>
           ) : rows.map((appointment) => {
             const editable = appointment.status === "held";
+            const patientName = patientProfiles.data?.find(
+              (profile) => profile.id === appointment.patient_profile_id
+            )?.full_name ?? "Paciente";
             return (
               <article key={appointment.id} className="space-y-3 p-5">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -102,6 +106,7 @@ export default function PatientAppointments() {
                     <p className="font-bold">
                       {appointment.kind === "consultation" ? "Consulta" : "Exame"}
                     </p>
+                    <p className="mt-1 text-sm text-slate-500">Paciente: {patientName}</p>
                     <p className="mt-1 text-sm text-slate-500">
                       {new Intl.DateTimeFormat("pt-BR", {
                         dateStyle: "long",

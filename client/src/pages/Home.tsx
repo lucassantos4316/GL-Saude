@@ -6,11 +6,14 @@ import { startLogin } from "@/const";
 import AppointmentBooking from "@/components/AppointmentBooking";
 import OverviewDashboard from "@/components/OverviewDashboard";
 import PatientAppointments from "@/components/PatientAppointments";
+import PatientProfilesManager from "@/components/PatientProfilesManager";
+import AdultAuthorizationReview from "@/components/AdultAuthorizationReview";
 import SupabaseLogin from "@/components/SupabaseLogin";
 import { trpc } from "@/lib/trpc";
 import { ProfileNavigation, ProfilePage } from "@/components/ProfilePages";
 import type { ProfileSection } from "@/components/ProfilePages";
 import { clearAuthState } from "@shared/authFlow";
+import { CURRENT_CONSENT_VERSION } from "@shared/registration";
 import { BrandLogo } from "@/components/BrandLogo";
 import ClinicHub, { healthcareUnits, type HealthcareUnit } from "@/pages/ClinicHub";
 import { Button } from "@/components/ui/button";
@@ -21,7 +24,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Bell, Building2, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, FileText, HeartPulse, LayoutDashboard, LogOut, Mail, Menu, Search, ShieldCheck, Stethoscope, UserRound, Users, WalletCards, X } from "lucide-react";
+import { Bell, Building2, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, FileText, HeartPulse, LayoutDashboard, LoaderCircle, LogOut, Mail, Menu, Search, ShieldCheck, Stethoscope, UserRound, Users, WalletCards, X } from "lucide-react";
 
 type Role = "patient" | "doctor" | "operator";
 const roleLabels: Record<Role, string> = { patient: "Usuário comum / Paciente", doctor: "Médico", operator: "Operador" };
@@ -132,6 +135,7 @@ function Shell({
   onExit,
   onChangeUnit,
   selectedUnit,
+  isAdmin,
   children,
   active,
   setActive,
@@ -141,6 +145,7 @@ function Shell({
   onExit: () => void | Promise<void>;
   onChangeUnit: () => void;
   selectedUnit: HealthcareUnit | null;
+  isAdmin: boolean;
   children: React.ReactNode;
   active: string;
   setActive: (value: string) => void;
@@ -151,6 +156,7 @@ function Shell({
           { id: "overview", label: "Visão geral", icon: LayoutDashboard },
           { id: "schedule", label: "Novo agendamento", icon: CalendarDays },
           { id: "history", label: "Meus agendamentos", icon: Clock3 },
+          { id: "dependents", label: "Pacientes e dependentes", icon: Users },
         ]
       : role === "doctor"
         ? [
@@ -163,6 +169,9 @@ function Shell({
             { id: "agenda", label: "Agenda da clínica", icon: CalendarDays },
             { id: "schedule", label: "Novo agendamento", icon: UserRound },
             { id: "reports", label: "Relatórios", icon: FileText },
+            ...(isAdmin
+              ? [{ id: "adult-authorizations", label: "Autorizações", icon: ShieldCheck }]
+              : []),
           ];
   const initials = userName
     .trim()
@@ -709,7 +718,7 @@ function PatientHistory() {
   return <div className="space-y-7"><div><h2 className="text-3xl font-bold tracking-tight">Meus agendamentos</h2><p className="mt-2 text-slate-500">Acompanhe consultas, exames e pagamentos.</p></div><Card className="border-0 shadow-sm"><CardContent className="divide-y divide-slate-100 p-0">{appointments.map((item) => <div key={item.id} className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center"><div className={`flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl ${item.color}`}><span className="font-bold">{item.day}</span><span className="text-[10px] font-bold">{item.month}</span></div><div className="flex-1"><p className="font-bold">{item.title}</p><p className="mt-1 text-sm text-slate-500">{item.professional} · {item.time}</p><Badge variant="outline" className="mt-2 border-slate-200 text-slate-500">{item.status}</Badge></div><div className="flex gap-2"><Button variant="outline" onClick={() => toast.info("O reagendamento abrirá os horários deste profissional.")}>Reagendar</Button><Button variant="outline" className="text-red-600 hover:text-red-700" onClick={() => toast.success("Solicitação de cancelamento registrada.")}>Cancelar</Button></div></div>)}</CardContent></Card></div>;
 }
 
-function AppContent({ role, userName, onExit, onChangeUnit, selectedUnit }: { role: Role; userName: string; onExit: () => void; onChangeUnit: () => void; selectedUnit: HealthcareUnit | null }) {
+function AppContent({ role, userName, onExit, onChangeUnit, selectedUnit, isAdmin }: { role: Role; userName: string; onExit: () => void; onChangeUnit: () => void; selectedUnit: HealthcareUnit | null; isAdmin: boolean }) {
   const [active, setActive] = useState("overview");
   const content = useMemo(() => active, [active]);
   const profileSections: ProfileSection[] = ["profile", "edit-profile", "my-data"];
@@ -724,12 +733,16 @@ function AppContent({ role, userName, onExit, onChangeUnit, selectedUnit }: { ro
     <PatientAppointments />
   ) : content === "schedule" && role === "patient" ? (
     <AppointmentBooking onDone={() => setActive("overview")} />
+  ) : content === "dependents" && role === "patient" ? (
+    <PatientProfilesManager />
+  ) : content === "adult-authorizations" && isAdmin ? (
+    <AdultAuthorizationReview />
   ) : (
     <WorkspacePanel role={role} active={content} />
   );
 
   return (
-    <Shell role={role} userName={userName} onExit={onExit} onChangeUnit={onChangeUnit} selectedUnit={selectedUnit} active={active} setActive={setActive}>
+    <Shell role={role} userName={userName} onExit={onExit} onChangeUnit={onChangeUnit} selectedUnit={selectedUnit} isAdmin={isAdmin} active={active} setActive={setActive}>
       {profileSection && (
         <ProfileNavigation
           active={profileSection}
@@ -741,9 +754,81 @@ function AppContent({ role, userName, onExit, onChangeUnit, selectedUnit }: { ro
   );
 }
 
+function AccountConsentGate({
+  pending,
+  error,
+  onAccept,
+}: {
+  pending: boolean;
+  error?: string;
+  onAccept: () => void;
+}) {
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const termsUrl = import.meta.env.VITE_TERMS_URL?.trim();
+  const privacyUrl = import.meta.env.VITE_PRIVACY_URL?.trim();
+
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#f7fbfb] p-5">
+      <Card className="w-full max-w-xl border-0 shadow-sm">
+        <CardHeader>
+          <CardTitle>Revise os consentimentos da sua conta</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <p className="text-sm leading-6 text-slate-600">
+            Para continuar, confirme que teve acesso aos documentos legais vigentes da clínica.
+            O consentimento será registrado para esta versão: {CURRENT_CONSENT_VERSION}.
+          </p>
+          {(!termsUrl || !privacyUrl) && (
+            <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800" role="status">
+              Configure VITE_TERMS_URL e VITE_PRIVACY_URL com os documentos aprovados pela clínica antes de usar este fluxo em produção.
+            </p>
+          )}
+          <div className="space-y-3">
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} className="mt-1 accent-[#087A92]" />
+              <span>
+                Li e aceito{" "}
+                {termsUrl ? <a href={termsUrl} target="_blank" rel="noreferrer" className="font-semibold text-[#087A92] underline">os Termos de Uso</a> : <strong>os Termos de Uso</strong>}.
+              </span>
+            </label>
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" checked={privacyAccepted} onChange={(event) => setPrivacyAccepted(event.target.checked)} className="mt-1 accent-[#087A92]" />
+              <span>
+                Li e aceito{" "}
+                {privacyUrl ? <a href={privacyUrl} target="_blank" rel="noreferrer" className="font-semibold text-[#087A92] underline">a Política de Privacidade</a> : <strong>a Política de Privacidade</strong>}.
+              </span>
+            </label>
+          </div>
+          {error && <p className="text-sm text-red-700" role="alert">{error}</p>}
+          <Button
+            type="button"
+            disabled={pending || !termsAccepted || !privacyAccepted}
+            onClick={onAccept}
+            className="w-full bg-[#087A92] hover:bg-[#076b80]"
+          >
+            {pending && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+            Confirmar consentimentos
+          </Button>
+        </CardContent>
+      </Card>
+    </main>
+  );
+}
+
 export default function Home() {
   const [, navigate] = useLocation();
-  const { user, logout, loading } = useAuth();
+  const { user, logout, loading, error, hasSession, refresh } = useAuth();
+  const utils = trpc.useUtils();
+  const accountConsent = trpc.accountConsent.current.useQuery(undefined, {
+    enabled: Boolean(user),
+    retry: false,
+  });
+  const acceptAccountConsent = trpc.accountConsent.accept.useMutation({
+    onSuccess: async () => {
+      await utils.accountConsent.current.invalidate();
+    },
+  });
   const forceLogin = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("loggedOut");
   const recoveringPassword = typeof window !== "undefined" && window.location.hash.includes("type=recovery");
   const [showHub, setShowHub] = useState(() => !localStorage.getItem("GGL saude-unit"));
@@ -763,7 +848,78 @@ export default function Home() {
     return <div className="flex min-h-screen items-center justify-center text-sm text-slate-500">Verificando sua sessão…</div>;
   }
 
+  if (hasSession && error) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f7fbfb] p-5">
+        <Card className="w-full max-w-xl border-0 shadow-sm">
+          <CardHeader>
+            <CardTitle>Não foi possível carregar seu perfil</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm leading-6 text-slate-600">
+              Sua sessão Supabase está ativa, mas o perfil do aplicativo não respondeu.
+              Verifique se as migrações do banco foram aplicadas e tente novamente.
+            </p>
+            <details className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
+              <summary className="cursor-pointer font-semibold">Detalhes técnicos</summary>
+              <pre className="mt-2 whitespace-pre-wrap break-words">{error.message}</pre>
+            </details>
+            <div className="flex flex-wrap gap-3">
+              <Button type="button" onClick={() => void refresh()} className="bg-[#087A92] hover:bg-[#076b80]">
+                Tentar novamente
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    await logout();
+                    navigate("/");
+                  } catch (logoutError) {
+                    console.error("[Auth] Failed to sign out after profile error:", logoutError);
+                    toast.error("Não foi possível sair da conta. Tente novamente.");
+                  }
+                }}
+              >
+                Sair da conta
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </main>
+    );
+  }
+
   if (forceLogin || recoveringPassword || !user || !role) return <SupabaseLogin />;
+  if (accountConsent.isLoading) {
+    return <div className="flex min-h-screen items-center justify-center text-sm text-slate-500">Verificando suas autorizações…</div>;
+  }
+  if (accountConsent.isError) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f7fbfb] p-5">
+        <Card className="w-full max-w-xl border-0 shadow-sm">
+          <CardHeader><CardTitle>Não foi possível verificar seus consentimentos</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm leading-6 text-slate-600">
+              A verificação de consentimento não respondeu. Confirme se a migração de dependentes e consentimentos foi aplicada.
+            </p>
+            <Button type="button" onClick={() => void accountConsent.refetch()} className="bg-[#087A92] hover:bg-[#076b80]">
+              Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
+      </main>
+    );
+  }
+  if (!accountConsent.data) {
+    return (
+      <AccountConsentGate
+        pending={acceptAccountConsent.isPending}
+        error={acceptAccountConsent.error?.message}
+        onAccept={() => acceptAccountConsent.mutate()}
+      />
+    );
+  }
   if (showHub) return <ClinicHub userName={user?.name ?? "João"} onSelect={(unit) => {
     localStorage.setItem("GGL saude-unit", unit.id);
     setSelectedUnit(unit);
@@ -781,5 +937,5 @@ export default function Home() {
       toast.error("Não foi possível sair da conta. Tente novamente.");
     }
   }} />;
-  return <AppContent role={role} userName={user.name?.trim() || "Usuário"} selectedUnit={selectedUnit} onChangeUnit={() => { setShowHub(true); navigate("/"); }} onExit={async () => { await logout(); setSelectedUnit(null); localStorage.removeItem("GGL saude-unit"); navigate(clearAuthState(localStorage)); }} />;
+  return <AppContent role={role} userName={user.name?.trim() || "Usuário"} selectedUnit={selectedUnit} isAdmin={user.role === "admin"} onChangeUnit={() => { setShowHub(true); navigate("/"); }} onExit={async () => { await logout(); setSelectedUnit(null); localStorage.removeItem("GGL saude-unit"); navigate(clearAuthState(localStorage)); }} />;
 }

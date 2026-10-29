@@ -75,6 +75,24 @@ describe("GL Saúde role authorization", () => {
     await expect(operator.operator.dashboard()).resolves.toMatchObject({ role: "operator" });
   });
 
+  it("restricts adult dependent authorization reviews to administrators", async () => {
+    const patient = appRouter.createCaller(context("patient"));
+    const doctor = appRouter.createCaller(context("doctor"));
+    const operator = appRouter.createCaller(context("operator"));
+
+    await expect(patient.patientProfiles.pendingAdultAuthorization()).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    await expect(
+      operator.patientProfiles.verifyAdult({
+        profileId: "9f1ca2c8-f4f2-4c97-9db0-5472d240a6ea",
+      })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(doctor.patientProfiles.list()).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+  });
+
   it("scopes appointment reads through the authenticated Supabase client", async () => {
     const patient = appRouter.createCaller(context("patient"));
     const doctor = appRouter.createCaller(context("doctor"));
@@ -95,6 +113,7 @@ describe("GL Saúde role authorization", () => {
       kind: "consultation" as const,
       startsAt: new Date(Date.now() + 60 * 60 * 1000),
       endsAt: new Date(Date.now() + 90 * 60 * 1000),
+      patientProfileId: "9f1ca2c8-f4f2-4c97-9db0-5472d240a6ea",
     };
 
     await expect(patient.clinic.holdSlot(input)).resolves.toBeTruthy();

@@ -53,6 +53,109 @@ export type Database = {
           last_signed_in_at?: string;
         }
       >;
+      patient_profiles: Table<
+        {
+          id: string;
+          owner_user_id: string;
+          is_self: boolean;
+          full_name: string;
+          cpf: string | null;
+          birth_date: string | null;
+          phone: string | null;
+          relationship: string;
+          consent_email: string | null;
+          legal_guardian_confirmed: boolean;
+          authorization_status: "self" | "guardian_attested" | "pending" | "verified" | "revoked";
+          verified_by: string | null;
+          verified_at: string | null;
+          postal_code: string | null;
+          street: string | null;
+          street_number: string | null;
+          complement: string | null;
+          district: string | null;
+          city: string | null;
+          state: string | null;
+          active: boolean;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          owner_user_id: string;
+          is_self?: boolean;
+          full_name: string;
+          cpf?: string | null;
+          birth_date?: string | null;
+          phone?: string | null;
+          relationship?: string;
+          consent_email?: string | null;
+          legal_guardian_confirmed?: boolean;
+          authorization_status?: "self" | "guardian_attested" | "pending" | "verified" | "revoked";
+          verified_by?: string | null;
+          verified_at?: string | null;
+          postal_code?: string | null;
+          street?: string | null;
+          street_number?: string | null;
+          complement?: string | null;
+          district?: string | null;
+          city?: string | null;
+          state?: string | null;
+          active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          owner_user_id?: string;
+          is_self?: boolean;
+          full_name?: string;
+          cpf?: string | null;
+          birth_date?: string | null;
+          phone?: string | null;
+          relationship?: string;
+          consent_email?: string | null;
+          legal_guardian_confirmed?: boolean;
+          authorization_status?: "self" | "guardian_attested" | "pending" | "verified" | "revoked";
+          verified_by?: string | null;
+          verified_at?: string | null;
+          postal_code?: string | null;
+          street?: string | null;
+          street_number?: string | null;
+          complement?: string | null;
+          district?: string | null;
+          city?: string | null;
+          state?: string | null;
+          active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      account_consents: Table<
+        {
+          user_id: string;
+          terms_version: string;
+          privacy_version: string;
+          terms_accepted_at: string;
+          privacy_accepted_at: string;
+          created_at: string;
+        },
+        {
+          user_id: string;
+          terms_version: string;
+          privacy_version: string;
+          terms_accepted_at: string;
+          privacy_accepted_at: string;
+          created_at?: string;
+        },
+        {
+          user_id?: string;
+          terms_version?: string;
+          privacy_version?: string;
+          terms_accepted_at?: string;
+          privacy_accepted_at?: string;
+          created_at?: string;
+        }
+      >;
       professionals: Table<
         {
           id: string;
@@ -95,6 +198,8 @@ export type Database = {
         {
           id: string;
           patient_id: string;
+          patient_profile_id: string | null;
+          booked_by: string | null;
           professional_id: string;
           clinic_id: string;
           kind: "consultation" | "exam";
@@ -108,6 +213,8 @@ export type Database = {
         {
           id?: string;
           patient_id: string;
+          patient_profile_id?: string | null;
+          booked_by?: string | null;
           professional_id: string;
           clinic_id: string;
           kind: "consultation" | "exam";
@@ -121,6 +228,8 @@ export type Database = {
         {
           id?: string;
           patient_id?: string;
+          patient_profile_id?: string | null;
+          booked_by?: string | null;
           professional_id?: string;
           clinic_id?: string;
           kind?: "consultation" | "exam";
@@ -168,6 +277,7 @@ export type Database = {
         {
           id: string;
           patient_id: string;
+          patient_profile_id: string | null;
           professional_id: string;
           appointment_id: string | null;
           type: "record" | "report" | "prescription" | "exam_request";
@@ -178,6 +288,7 @@ export type Database = {
         {
           id?: string;
           patient_id: string;
+          patient_profile_id?: string | null;
           professional_id: string;
           appointment_id?: string | null;
           type: "record" | "report" | "prescription" | "exam_request";
@@ -188,6 +299,7 @@ export type Database = {
         {
           id?: string;
           patient_id?: string;
+          patient_profile_id?: string | null;
           professional_id?: string;
           appointment_id?: string | null;
           type?: "record" | "report" | "prescription" | "exam_request";
@@ -244,8 +356,34 @@ export type Database = {
           p_kind: "consultation" | "exam";
           p_starts_at: string;
           p_ends_at: string;
+          p_patient_profile_id: string;
         };
         Returns: string;
+      };
+      verify_adult_dependent: {
+        Args: { p_patient_profile_id: string };
+        Returns: undefined;
+      };
+      list_pending_adult_dependents: {
+        Args: Record<string, never>;
+        Returns: Array<{
+          patient_profile_id: string;
+          patient_name: string;
+          patient_birth_date: string;
+          consent_email: string;
+          relationship: string;
+          account_owner_name: string;
+          account_owner_email: string | null;
+          requested_at: string;
+        }>;
+      };
+      has_current_account_consent: {
+        Args: Record<string, never>;
+        Returns: boolean;
+      };
+      record_current_account_consent: {
+        Args: Record<string, never>;
+        Returns: undefined;
       };
       reschedule_held_appointment: {
         Args: {

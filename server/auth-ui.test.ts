@@ -1,13 +1,24 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("../client/src/lib/supabase", () => ({
+  supabase: {
+    auth: {
+      signInWithPassword: vi.fn(),
+      signInWithOAuth: vi.fn(),
+      signUp: vi.fn(),
+      resetPasswordForEmail: vi.fn(),
+    },
+  },
+}));
+
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { Login } from "../client/src/pages/Home";
+import SupabaseLogin from "../client/src/components/SupabaseLogin";
 
-describe("GGL saude login UI", () => {
-  it("renders Google sign-in and registration without demo or institutional-login copy", () => {
-    const html = renderToStaticMarkup(React.createElement(Login, { onEnter: () => undefined }));
-    expect(html).not.toContain("Perfil de acesso");
-    expect(html).toContain(">Entrar <");
+describe("Supabase authentication UI", () => {
+  it("renders email sign-in, Google sign-in, and registration entry point", () => {
+    const html = renderToStaticMarkup(React.createElement(SupabaseLogin));
+    expect(html).toContain("Acesse sua conta");
     expect(html).toContain("Continuar com Google");
     expect(html).toContain("Cadastre-se");
     expect(html).not.toContain("Entrar com conta institucional");

@@ -1,12 +1,16 @@
 import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useRoute } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { startLogin } from "@/const";
+import AppointmentBooking from "@/components/AppointmentBooking";
+import OverviewDashboard from "@/components/OverviewDashboard";
+import PatientAppointments from "@/components/PatientAppointments";
+import SupabaseLogin from "@/components/SupabaseLogin";
 import { trpc } from "@/lib/trpc";
 import { ProfileNavigation, ProfilePage } from "@/components/ProfilePages";
 import type { ProfileSection } from "@/components/ProfilePages";
-import { clearAuthState, isAppRole, persistSelectedRole } from "@shared/authFlow";
+import { clearAuthState } from "@shared/authFlow";
 import { BrandLogo } from "@/components/BrandLogo";
 import ClinicHub, { healthcareUnits, type HealthcareUnit } from "@/pages/ClinicHub";
 import { Button } from "@/components/ui/button";
@@ -33,7 +37,7 @@ const doctors = [
   { name: "Dra. Marina Costa", specialty: "Dermatologia", crm: "CRM-MS 13904", rating: "4,9", price: "R$ 240,00", initials: "MC", accent: "from-[#087A92] to-[#4CCB73]" },
 ];
 
-export function Login({ onEnter }: { onEnter: (role: Role) => void }) {
+function LegacyDemoLogin({ onEnter }: { onEnter: (role: Role) => void }) {
   const [attempts, setAttempts] = useState(0);
   const locked = attempts >= 3;
   return <div className="min-h-screen bg-[#f7fbfb] text-slate-900">
@@ -120,9 +124,144 @@ export function Login({ onEnter }: { onEnter: (role: Role) => void }) {
   </div>;
 }
 
-function Shell({ role, onExit, onChangeUnit, selectedUnit, children, active, setActive }: { role: Role; onExit: () => void | Promise<void>; onChangeUnit: () => void; selectedUnit: HealthcareUnit | null; children: React.ReactNode; active: string; setActive: (value: string) => void }) {
-  const nav = role === "patient" ? [{ id: "overview", label: "Visão geral", icon: LayoutDashboard }, { id: "schedule", label: "Novo agendamento", icon: CalendarDays }, { id: "history", label: "Meus agendamentos", icon: Clock3 }] : role === "doctor" ? [{ id: "overview", label: "Visão geral", icon: LayoutDashboard }, { id: "agenda", label: "Minha agenda", icon: CalendarDays }, { id: "patients", label: "Pacientes", icon: Users }] : [{ id: "overview", label: "Visão geral", icon: LayoutDashboard }, { id: "agenda", label: "Agenda da clínica", icon: CalendarDays }, { id: "schedule", label: "Novo agendamento", icon: UserRound }, { id: "reports", label: "Relatórios", icon: FileText }];
-  return <div className="min-h-screen bg-[#f4f7f6] text-slate-900"><aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-slate-100 bg-white lg:flex lg:flex-col"><div className="flex h-20 items-center border-b border-slate-100 px-7"><BrandLogo compact={false} /></div><div className="px-4 py-6"><p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Menu principal</p><nav className="space-y-1">{nav.map((item) => <button key={item.id} onClick={() => setActive(item.id)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm transition-all ${active === item.id ? "bg-[#087A92]/10 font-semibold text-[#087A92]" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"}`}><item.icon className="h-[18px] w-[18px]" />{item.label}</button>)}</nav></div><div className="mt-auto border-t border-slate-100 p-4"><div className="mb-3 flex items-center gap-3 rounded-xl bg-slate-50 p-3"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#087A92] to-[#4CCB73] text-xs font-bold text-white">{role === "doctor" ? "CR" : role === "operator" ? "AM" : "JS"}</div><div className="min-w-0"><p className="truncate text-sm font-semibold">{role === "doctor" ? "Dra. Camila Ribeiro" : role === "operator" ? "Ana Martins" : "João da Silva"}</p><p className="text-xs text-slate-400">{roleLabels[role]}</p></div></div><button onClick={onChangeUnit} className="mb-2 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#087A92] hover:bg-[#e7f7f5]"><Building2 className="h-4 w-4" /> Trocar unidade</button><button onClick={onExit} className="flex w-full items-center gap-3 px-3 py-2 text-sm text-slate-500 hover:text-red-600"><LogOut className="h-4 w-4" /> Sair da conta</button></div></aside><div className="lg:pl-64"><header className="sticky top-0 z-20 flex h-20 items-center justify-between border-b border-slate-100 bg-white/90 px-5 backdrop-blur-md sm:px-8"><div className="flex items-center gap-3 lg:hidden"><Menu className="h-5 w-5 text-slate-500" /><BrandLogo compact /></div><div className="hidden lg:block"><p className="text-sm text-slate-400">{selectedUnit?.name ?? (role === "doctor" ? "Painel médico" : role === "operator" ? "Operação da clínica" : "Área do paciente")}</p><h1 className="text-lg font-bold">Olá, {role === "doctor" ? "Camila" : role === "operator" ? "Ana" : "João"}</h1></div><div className="flex items-center gap-3"><button className="rounded-xl px-3 py-2 text-sm font-semibold text-[#087A92] hover:bg-[#e7f7f5] lg:hidden" onClick={onChangeUnit}>Trocar unidade</button><button className="relative rounded-xl p-2.5 text-slate-500 hover:bg-slate-50" onClick={() => toast.info("Você está em dia com as notificações.")}><Mail className="h-5 w-5" /><span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-[#4CCB73]" /></button><div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#087A92]/10 text-sm font-bold text-[#087A92]">{role === "doctor" ? "CR" : role === "operator" ? "AM" : "JS"}</div></div></header><main className="mx-auto w-full max-w-[1600px] p-4 sm:p-6 lg:p-7">{children}</main></div></div>;
+export const Login = SupabaseLogin;
+
+function Shell({
+  role,
+  userName,
+  onExit,
+  onChangeUnit,
+  selectedUnit,
+  children,
+  active,
+  setActive,
+}: {
+  role: Role;
+  userName: string;
+  onExit: () => void | Promise<void>;
+  onChangeUnit: () => void;
+  selectedUnit: HealthcareUnit | null;
+  children: React.ReactNode;
+  active: string;
+  setActive: (value: string) => void;
+}) {
+  const nav =
+    role === "patient"
+      ? [
+          { id: "overview", label: "Visão geral", icon: LayoutDashboard },
+          { id: "schedule", label: "Novo agendamento", icon: CalendarDays },
+          { id: "history", label: "Meus agendamentos", icon: Clock3 },
+        ]
+      : role === "doctor"
+        ? [
+            { id: "overview", label: "Visão geral", icon: LayoutDashboard },
+            { id: "agenda", label: "Minha agenda", icon: CalendarDays },
+            { id: "patients", label: "Pacientes", icon: Users },
+          ]
+        : [
+            { id: "overview", label: "Visão geral", icon: LayoutDashboard },
+            { id: "agenda", label: "Agenda da clínica", icon: CalendarDays },
+            { id: "schedule", label: "Novo agendamento", icon: UserRound },
+            { id: "reports", label: "Relatórios", icon: FileText },
+          ];
+  const initials = userName
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("") || "U";
+  const greetingName = userName.trim().split(/\s+/)[0] || "Usuário";
+
+  return (
+    <div className="min-h-screen bg-[#f7fbfb] text-slate-900">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-slate-100 bg-white lg:flex lg:flex-col">
+        <div className="flex h-20 items-center border-b border-slate-100 px-7">
+          <BrandLogo compact={false} />
+        </div>
+        <div className="px-4 py-6">
+          <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+            Menu principal
+          </p>
+          <nav className="space-y-1">
+            {nav.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setActive(item.id)}
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm transition-all ${
+                  active === item.id
+                    ? "bg-[#087A92]/10 font-semibold text-[#087A92]"
+                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                }`}
+              >
+                <item.icon className="h-[18px] w-[18px]" />
+                {item.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+        <div className="mt-auto border-t border-slate-100 p-4">
+          <div className="mb-3 flex items-center gap-3 rounded-xl bg-slate-50 p-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#087A92] to-[#4CCB73] text-xs font-bold text-white">
+              {initials}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">{userName}</p>
+              <p className="text-xs text-slate-400">{roleLabels[role]}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onChangeUnit}
+            className="mb-2 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#087A92] hover:bg-[#e7f7f5]"
+          >
+            <Building2 className="h-4 w-4" />
+            Trocar unidade
+          </button>
+          <button
+            type="button"
+            onClick={onExit}
+            className="flex w-full items-center gap-3 px-3 py-2 text-sm text-slate-500 hover:text-red-600"
+          >
+            <LogOut className="h-4 w-4" />
+            Sair da conta
+          </button>
+        </div>
+      </aside>
+      <div className="lg:pl-64">
+        <header className="sticky top-0 z-20 flex h-20 items-center justify-between border-b border-slate-100 bg-white/90 px-5 backdrop-blur-md sm:px-8">
+          <div className="flex items-center gap-3 lg:hidden">
+            <Menu className="h-5 w-5 text-slate-500" />
+            <BrandLogo compact />
+          </div>
+          <div className="hidden lg:block">
+            <p className="text-sm text-slate-400">
+              {selectedUnit?.name ??
+                (role === "doctor"
+                  ? "Painel médico"
+                  : role === "operator"
+                    ? "Operação da clínica"
+                    : "Área do paciente")}
+            </p>
+            <h1 className="text-lg font-bold">Olá, {greetingName}</h1>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              className="rounded-xl px-3 py-2 text-sm font-semibold text-[#087A92] hover:bg-[#e7f7f5] lg:hidden"
+              onClick={onChangeUnit}
+            >
+              Trocar unidade
+            </button>
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#087A92]/10 text-sm font-bold text-[#087A92]">
+              {initials}
+            </div>
+          </div>
+        </header>
+        <main className="mx-auto max-w-[1440px] p-5 sm:p-8">{children}</main>
+      </div>
+    </div>
+  );
 }
 
 function Overview({ role, go }: { role: Role; go: (id: string) => void }) {
@@ -510,7 +649,7 @@ function Overview({ role, go }: { role: Role; go: (id: string) => void }) {
 function Booking({ onDone }: { onDone: () => void }) {
   const [step, setStep] = useState(1); const [type, setType] = useState("Consulta médica"); const [selected, setSelected] = useState(doctors[0].name); const [method, setMethod] = useState("Pix");
   const steps = ["Tipo", "Profissional", "Horário", "Pagamento"];
-  return <div className="mx-auto max-w-4xl space-y-7"><div><button className="mb-4 text-sm font-semibold text-[#087A92]" onClick={onDone}>Voltar ao painel</button><h2 className="text-3xl font-bold tracking-tight">Novo agendamento</h2><p className="mt-2 text-slate-500">Escolha o melhor momento para cuidar de você.</p></div><div className="flex items-center gap-2 overflow-x-auto pb-2">{steps.map((name, index) => <div key={name} className="flex min-w-fit items-center gap-2"><div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${step > index + 1 ? "bg-[#4CCB73] text-white" : step === index + 1 ? "bg-[#087A92] text-white" : "bg-slate-100 text-slate-400"}`}>{step > index + 1 ? <Check className="h-4 w-4" /> : index + 1}</div><span className={`text-sm ${step === index + 1 ? "font-bold text-[#087A92]" : "text-slate-400"}`}>{name}</span>{index < 3 && <div className="mx-2 h-px w-8 bg-slate-200 sm:w-16" />}</div>)}</div><Card className="border-0 shadow-sm"><CardContent className="p-6 sm:p-9">{step === 1 && <div className="space-y-6"><div><h3 className="text-xl font-bold">O que você precisa?</h3><p className="mt-1 text-sm text-slate-500">Selecione uma opção para começar.</p></div><div className="grid gap-4 sm:grid-cols-2">{["Consulta médica", "Exame laboratorial"].map((item) => <button key={item} onClick={() => setType(item)} className={`rounded-2xl border-2 p-6 text-left transition ${type === item ? "border-[#18AFA0] bg-[#18AFA0]/5" : "border-slate-100 hover:border-[#18AFA0]/40"}`}><div className={`mb-5 flex h-12 w-12 items-center justify-center rounded-xl ${type === item ? "bg-[#087A92] text-white" : "bg-slate-100 text-slate-500"}`}>{item.startsWith("Consulta") ? <Stethoscope className="h-6 w-6" /> : <FileText className="h-6 w-6" />}</div><p className="font-bold">{item}</p><p className="mt-1 text-sm text-slate-500">{item.startsWith("Consulta") ? "Encontre o especialista ideal para você." : "Laboratoriais e exames de imagem."}</p></button>)}</div><Button onClick={() => setStep(2)} className="h-11 w-full bg-[#087A92] text-white hover:bg-[#076b80]">Continuar</Button></div>}{step === 2 && <div className="space-y-6"><div><h3 className="text-xl font-bold">Encontre seu profissional</h3><p className="mt-1 text-sm text-slate-500">Filtre por especialidade, nome ou localização.</p></div><div className="relative"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" /><Input className="pl-9" placeholder="Buscar por nome ou especialidade" /></div><div className="space-y-3">{doctors.map((doctor) => <button key={doctor.name} onClick={() => setSelected(doctor.name)} className={`flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition ${selected === doctor.name ? "border-[#18AFA0] bg-[#18AFA0]/5" : "border-slate-100 hover:border-[#18AFA0]/40"}`}><div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${doctor.accent} text-sm font-bold text-white`}>{doctor.initials}</div><div className="min-w-0 flex-1"><p className="font-bold">{doctor.name}</p><p className="text-sm text-slate-500">{doctor.specialty} · {doctor.crm}</p><p className="mt-1 text-xs text-amber-600">★ {doctor.rating} <span className="text-slate-400">· {doctor.price}</span></p></div>{selected === doctor.name && <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#4CCB73] text-white"><Check className="h-4 w-4" /></div>}</button>)}</div><Button onClick={() => setStep(3)} className="h-11 w-full bg-[#087A92] text-white hover:bg-[#076b80]">Escolher horário</Button></div>}{step === 3 && <div className="space-y-6"><div><h3 className="text-xl font-bold">Escolha o melhor horário</h3><p className="mt-1 text-sm text-slate-500">O horário fica reservado por 10 minutos.</p></div><div className="rounded-2xl border border-[#18AFA0]/20 bg-[#18AFA0]/5 p-4 text-sm text-[#087A92]"><Clock3 className="mr-2 inline h-4 w-4" /> Você terá 10:00 minutos para concluir a confirmação.</div><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{["18 jun · 09:30", "18 jun · 11:00", "19 jun · 14:00", "20 jun · 08:30", "20 jun · 10:00", "21 jun · 15:30", "23 jun · 09:00", "23 jun · 16:00"].map((time) => <button key={time} onClick={() => setSelected(time)} className={`rounded-xl border px-3 py-3 text-sm font-semibold transition ${selected === time ? "border-[#087A92] bg-[#087A92] text-white" : "border-slate-100 hover:border-[#18AFA0]"}`}>{time}</button>)}</div><Button onClick={() => setStep(4)} className="h-11 w-full bg-[#087A92] text-white hover:bg-[#076b80]">Revisar agendamento</Button></div>}{step === 4 && <div className="space-y-6"><div><h3 className="text-xl font-bold">Confirme e pague</h3><p className="mt-1 text-sm text-slate-500">O agendamento será confirmado após o pagamento.</p></div><div className="rounded-2xl bg-slate-50 p-5"><div className="flex items-center justify-between"><div><p className="text-sm text-slate-500">{type}</p><p className="mt-1 font-bold">{selected === doctors[0].name ? doctors[0].name : selected}</p></div><Badge className="bg-[#4CCB73] text-white">R$ 280,00</Badge></div><div className="mt-5 grid gap-3 border-t border-slate-200 pt-4 text-sm sm:grid-cols-2"><span><strong>Data e hora</strong><br /><span className="text-slate-500">18 de junho, 09:30</span></span><span><strong>Local</strong><br /><span className="text-slate-500">Clínica saude · Sala 02</span></span></div></div><div><p className="mb-3 text-sm font-bold">Forma de pagamento</p><div className="grid grid-cols-2 gap-3"><button onClick={() => setMethod("Pix")} className={`rounded-xl border-2 p-4 text-left ${method === "Pix" ? "border-[#18AFA0] bg-[#18AFA0]/5" : "border-slate-100"}`}><p className="font-bold">Pix</p><p className="mt-1 text-xs text-slate-500">Aprovação imediata</p></button><button onClick={() => setMethod("Cartão de crédito")} className={`rounded-xl border-2 p-4 text-left ${method === "Cartão de crédito" ? "border-[#18AFA0] bg-[#18AFA0]/5" : "border-slate-100"}`}><p className="font-bold">Cartão de crédito</p><p className="mt-1 text-xs text-slate-500">Até 6x sem juros</p></button></div></div><Button onClick={() => { toast.success("Pagamento confirmado e agendamento realizado!"); onDone(); }} className="h-12 w-full bg-[#087A92] text-base text-white hover:bg-[#076b80]"><ShieldCheck className="mr-2 h-4 w-4" /> Pagar com {method}</Button><p className="text-center text-xs text-slate-400">Pagamento seguro · Seus dados estão protegidos</p></div>}</CardContent></Card></div>;
+  return <div className="mx-auto max-w-4xl space-y-7"><div><button className="mb-4 text-sm font-semibold text-[#087A92]" onClick={onDone}>Voltar ao painel</button><h2 className="text-3xl font-bold tracking-tight">Novo agendamento</h2><p className="mt-2 text-slate-500">Escolha o melhor momento para cuidar de você.</p></div><div className="flex items-center gap-2 overflow-x-auto pb-2">{steps.map((name, index) => <div key={name} className="flex min-w-fit items-center gap-2"><div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${step > index + 1 ? "bg-[#4CCB73] text-white" : step === index + 1 ? "bg-[#087A92] text-white" : "bg-slate-100 text-slate-400"}`}>{step > index + 1 ? <Check className="h-4 w-4" /> : index + 1}</div><span className={`text-sm ${step === index + 1 ? "font-bold text-[#087A92]" : "text-slate-400"}`}>{name}</span>{index < 3 && <div className="mx-2 h-px w-8 bg-slate-200 sm:w-16" />}</div>)}</div><Card className="border-0 shadow-sm"><CardContent className="p-6 sm:p-9">{step === 1 && <div className="space-y-6"><div><h3 className="text-xl font-bold">O que você precisa?</h3><p className="mt-1 text-sm text-slate-500">Selecione uma opção para começar.</p></div><div className="grid gap-4 sm:grid-cols-2">{["Consulta médica", "Exame laboratorial"].map((item) => <button key={item} onClick={() => setType(item)} className={`rounded-2xl border-2 p-6 text-left transition ${type === item ? "border-[#18AFA0] bg-[#18AFA0]/5" : "border-slate-100 hover:border-[#18AFA0]/40"}`}><div className={`mb-5 flex h-12 w-12 items-center justify-center rounded-xl ${type === item ? "bg-[#087A92] text-white" : "bg-slate-100 text-slate-500"}`}>{item.startsWith("Consulta") ? <Stethoscope className="h-6 w-6" /> : <FileText className="h-6 w-6" />}</div><p className="font-bold">{item}</p><p className="mt-1 text-sm text-slate-500">{item.startsWith("Consulta") ? "Encontre o especialista ideal para você." : "Laboratoriais e exames de imagem."}</p></button>)}</div><Button onClick={() => setStep(2)} className="h-11 w-full bg-[#087A92] text-white hover:bg-[#076b80]">Continuar</Button></div>}{step === 2 && <div className="space-y-6"><div><h3 className="text-xl font-bold">Encontre seu profissional</h3><p className="mt-1 text-sm text-slate-500">Filtre por especialidade, nome ou localização.</p></div><div className="relative"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" /><Input className="pl-9" placeholder="Buscar por nome ou especialidade" /></div><div className="space-y-3">{doctors.map((doctor) => <button key={doctor.name} onClick={() => setSelected(doctor.name)} className={`flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition ${selected === doctor.name ? "border-[#18AFA0] bg-[#18AFA0]/5" : "border-slate-100 hover:border-[#18AFA0]/40"}`}><div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${doctor.accent} text-sm font-bold text-white`}>{doctor.initials}</div><div className="min-w-0 flex-1"><p className="font-bold">{doctor.name}</p><p className="text-sm text-slate-500">{doctor.specialty} · {doctor.crm}</p><p className="mt-1 text-xs text-amber-600">★ {doctor.rating} <span className="text-slate-400">· {doctor.price}</span></p></div>{selected === doctor.name && <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#4CCB73] text-white"><Check className="h-4 w-4" /></div>}</button>)}</div><Button onClick={() => setStep(3)} className="h-11 w-full bg-[#087A92] text-white hover:bg-[#076b80]">Escolher horário</Button></div>}{step === 3 && <div className="space-y-6"><div><h3 className="text-xl font-bold">Escolha o melhor horário</h3><p className="mt-1 text-sm text-slate-500">O horário fica reservado por 10 minutos.</p></div><div className="rounded-2xl border border-[#18AFA0]/20 bg-[#18AFA0]/5 p-4 text-sm text-[#087A92]"><Clock3 className="mr-2 inline h-4 w-4" /> Você terá 10:00 minutos para concluir a confirmação.</div><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{["18 jun · 09:30", "18 jun · 11:00", "19 jun · 14:00", "20 jun · 08:30", "20 jun · 10:00", "21 jun · 15:30", "23 jun · 09:00", "23 jun · 16:00"].map((time) => <button key={time} onClick={() => setSelected(time)} className={`rounded-xl border px-3 py-3 text-sm font-semibold transition ${selected === time ? "border-[#087A92] bg-[#087A92] text-white" : "border-slate-100 hover:border-[#18AFA0]"}`}>{time}</button>)}</div><Button onClick={() => setStep(4)} className="h-11 w-full bg-[#087A92] text-white hover:bg-[#076b80]">Revisar agendamento</Button></div>}{step === 4 && <div className="space-y-6"><div><h3 className="text-xl font-bold">Confirme e pague</h3><p className="mt-1 text-sm text-slate-500">O agendamento será confirmado após o pagamento.</p></div><div className="rounded-2xl bg-slate-50 p-5"><div className="flex items-center justify-between"><div><p className="text-sm text-slate-500">{type}</p><p className="mt-1 font-bold">{selected === doctors[0].name ? doctors[0].name : selected}</p></div><Badge className="bg-[#4CCB73] text-white">R$ 280,00</Badge></div><div className="mt-5 grid gap-3 border-t border-slate-200 pt-4 text-sm sm:grid-cols-2"><span><strong>Data e hora</strong><br /><span className="text-slate-500">18 de junho, 09:30</span></span><span><strong>Local</strong><br /><span className="text-slate-500">Clínica saude · Sala 02</span></span></div></div><div><p className="mb-3 text-sm font-bold">Forma de pagamento</p><div className="grid grid-cols-3 gap-3"><button onClick={() => setMethod("Pix")} className={`rounded-xl border-2 p-4 text-left ${method === "Pix" ? "border-[#18AFA0] bg-[#18AFA0]/5" : "border-slate-100"}`}><p className="font-bold">Pix</p><p className="mt-1 text-xs text-slate-500">Aprovação imediata</p></button><button onClick={() => setMethod("Cartão de crédito")} className={`rounded-xl border-2 p-4 text-left ${method === "Cartão de crédito" ? "border-[#18AFA0] bg-[#18AFA0]/5" : "border-slate-100"}`}><p className="font-bold">Cartão de crédito</p><p className="mt-1 text-xs text-slate-500">Até 6x sem juros</p></button><button onClick={() => setMethod("Pagar presencialmente")} className={`rounded-xl border-2 p-4 text-left ${method === "Pagar presencialmente" ? "border-[#18AFA0] bg-[#18AFA0]/5" : "border-slate-100"}`}><p className="font-bold">Pagar presencialmente</p><p className="mt-1 text-xs text-slate-500">Pagamento no local</p></button></div></div><Button onClick={() => { if (method === "Pagar presencialmente") { toast.success("Agendamento confirmado para pagamento presencial."); onDone(); return; } toast.success("Pagamento confirmado e agendamento realizado!"); onDone(); }} className="h-12 w-full bg-[#087A92] text-base text-white hover:bg-[#076b80]"><ShieldCheck className="mr-2 h-4 w-4" /> {method === "Pagar presencialmente" ? "Confirmar agendamento" : `Pagar com ${method}`}</Button><p className="text-center text-xs text-slate-400">Pagamento seguro · Seus dados estão protegidos</p></div>}</CardContent></Card></div>;
 }
 
 function WorkspacePanel({ role, active }: { role: Role; active: string }) {
@@ -518,7 +657,7 @@ function WorkspacePanel({ role, active }: { role: Role; active: string }) {
   const [generatedReport, setGeneratedReport] = useState<string | null>(null);
   const [bookingPatient, setBookingPatient] = useState("");
   const [bookingConfirmed, setBookingConfirmed] = useState(false);
-  const doctorAgenda = trpc.doctor.agenda.useQuery({ professionalId: 1 }, { enabled: role === "doctor" && active === "agenda" });
+  const doctorAgenda = trpc.doctor.agenda.useQuery(undefined, { enabled: role === "doctor" && active === "agenda" });
   const operatorAgenda = trpc.operator.clinicAgenda.useQuery(undefined, { enabled: role === "operator" && active === "agenda" });
   const panel = active === "agenda"
     ? { title: role === "doctor" ? "Minha agenda" : "Agenda da clínica", description: role === "doctor" ? "Organize consultas do dia e da semana." : "Acompanhe a operação da clínica e os horários disponíveis." }
@@ -526,7 +665,40 @@ function WorkspacePanel({ role, active }: { role: Role; active: string }) {
     : active === "reports" ? { title: "Relatórios", description: "Gere indicadores operacionais da clínica." }
     : { title: "Agendamento em nome do paciente", description: "Registre o atendimento solicitado pelo paciente." };
   const filteredPatients = ["João da Silva", "Maria Oliveira", "Carlos Mendes"].filter((name) => name.toLowerCase().includes(query.toLowerCase()));
-  const view = active === "agenda" ? <Card className="border-0 shadow-sm"><CardContent className="space-y-3 p-6">{(role === "doctor" ? doctorAgenda.data : operatorAgenda.data)?.map((item) => <div key={item.id} className="flex items-center justify-between rounded-xl border border-slate-100 p-4"><span className="font-semibold">{new Date(item.startsAt).toLocaleString("pt-BR")} · {item.status}</span><Button size="sm" variant="outline" onClick={() => toast.success("Status da consulta atualizado.")}>Atualizar status</Button></div>)}{(role === "doctor" ? doctorAgenda.isLoading : operatorAgenda.isLoading) && <p className="text-sm text-slate-500">Carregando agenda persistida…</p>}{!(role === "doctor" ? doctorAgenda.data?.length : operatorAgenda.data?.length) && !(role === "doctor" ? doctorAgenda.isLoading : operatorAgenda.isLoading) && <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Nenhum agendamento encontrado para este perfil.</p>}</CardContent></Card>
+  if (active === "schedule" && role === "operator") {
+    return (
+      <div className="space-y-5">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">{panel.title}</h2>
+          <p className="mt-2 text-slate-500">{panel.description}</p>
+        </div>
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-6 text-sm text-slate-600">
+            Reservas em nome de pacientes ainda não estão habilitadas. A criação de reservas está disponível
+            para pacientes autenticados; não foi criada nenhuma reserva por esta tela.
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  if (active === "patients" || active === "reports") {
+    return (
+      <div className="space-y-5">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">{panel.title}</h2>
+          <p className="mt-2 text-slate-500">{panel.description}</p>
+        </div>
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-6 text-sm text-slate-600">
+            {active === "patients"
+              ? "A lista será exibida quando o vínculo clínico e as permissões de acesso a pacientes forem configurados."
+              : "Os relatórios aparecerão após a configuração das consultas e métricas persistidas no Supabase."}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  const view = active === "agenda" ? <Card className="border-0 shadow-sm"><CardContent className="space-y-3 p-6">{(role === "doctor" ? doctorAgenda.data : operatorAgenda.data)?.map((item) => <div key={item.id} className="flex items-center justify-between rounded-xl border border-slate-100 p-4"><span className="font-semibold">{new Date(item.starts_at).toLocaleString("pt-BR")} · {item.status}</span><span className="text-sm text-slate-500">{item.kind === "consultation" ? "Consulta" : "Exame"}</span></div>)}{(role === "doctor" ? doctorAgenda.isLoading : operatorAgenda.isLoading) && <p className="text-sm text-slate-500">Carregando agenda…</p>}{!(role === "doctor" ? doctorAgenda.data?.length : operatorAgenda.data?.length) && !(role === "doctor" ? doctorAgenda.isLoading : operatorAgenda.isLoading) && <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Nenhum agendamento encontrado para este perfil.</p>}</CardContent></Card>
     : active === "patients" ? <Card className="border-0 shadow-sm"><CardContent className="space-y-4 p-6"><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar paciente por nome" />{filteredPatients.map((name) => <div key={name} className="flex w-full items-center justify-between rounded-xl border border-slate-100 p-4 text-left"><span className="font-semibold">{name}</span></div>)}</CardContent></Card>
     : active === "reports" ? <Card className="border-0 shadow-sm"><CardContent className="space-y-5 p-6"><div className="grid gap-3 sm:grid-cols-2"><Input type="date" /><Input type="date" /></div><Button onClick={() => setGeneratedReport("Relatório gerado com consultas, pacientes e taxa de presença.")} className="bg-[#087A92] hover:bg-[#076b80]">Gerar relatório</Button>{generatedReport && <div className="rounded-xl bg-[#18AFA0]/10 p-4 text-sm text-[#087A92]">{generatedReport}</div>}</CardContent></Card>
     : <Card className="border-0 shadow-sm"><CardContent className="space-y-4 p-6"><Input value={bookingPatient} onChange={(event) => setBookingPatient(event.target.value)} placeholder="Nome do paciente" /><Select><SelectTrigger><SelectValue placeholder="Escolha o profissional" /></SelectTrigger><SelectContent>{doctors.map((doctor) => <SelectItem key={doctor.name} value={doctor.name}>{doctor.name} · {doctor.specialty}</SelectItem>)}</SelectContent></Select><Button disabled={!bookingPatient.trim()} onClick={() => { setBookingConfirmed(true); toast.success("Agendamento reservado por 10 minutos."); }} className="bg-[#087A92] hover:bg-[#076b80]">Reservar horário</Button>{bookingConfirmed && <p className="rounded-xl bg-green-50 p-3 text-sm text-green-700">Reserva criada para {bookingPatient}; aguardando confirmação do pagamento.</p>}</CardContent></Card>;
@@ -537,7 +709,7 @@ function PatientHistory() {
   return <div className="space-y-7"><div><h2 className="text-3xl font-bold tracking-tight">Meus agendamentos</h2><p className="mt-2 text-slate-500">Acompanhe consultas, exames e pagamentos.</p></div><Card className="border-0 shadow-sm"><CardContent className="divide-y divide-slate-100 p-0">{appointments.map((item) => <div key={item.id} className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center"><div className={`flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl ${item.color}`}><span className="font-bold">{item.day}</span><span className="text-[10px] font-bold">{item.month}</span></div><div className="flex-1"><p className="font-bold">{item.title}</p><p className="mt-1 text-sm text-slate-500">{item.professional} · {item.time}</p><Badge variant="outline" className="mt-2 border-slate-200 text-slate-500">{item.status}</Badge></div><div className="flex gap-2"><Button variant="outline" onClick={() => toast.info("O reagendamento abrirá os horários deste profissional.")}>Reagendar</Button><Button variant="outline" className="text-red-600 hover:text-red-700" onClick={() => toast.success("Solicitação de cancelamento registrada.")}>Cancelar</Button></div></div>)}</CardContent></Card></div>;
 }
 
-function AppContent({ role, onExit, onChangeUnit, selectedUnit }: { role: Role; onExit: () => void; onChangeUnit: () => void; selectedUnit: HealthcareUnit | null }) {
+function AppContent({ role, userName, onExit, onChangeUnit, selectedUnit }: { role: Role; userName: string; onExit: () => void; onChangeUnit: () => void; selectedUnit: HealthcareUnit | null }) {
   const [active, setActive] = useState("overview");
   const content = useMemo(() => active, [active]);
   const profileSections: ProfileSection[] = ["profile", "edit-profile", "my-data"];
@@ -547,17 +719,17 @@ function AppContent({ role, onExit, onChangeUnit, selectedUnit }: { role: Role; 
   const view = profileSection ? (
     <ProfilePage section={profileSection} />
   ) : content === "overview" ? (
-    <Overview role={role} go={setActive} />
+    <OverviewDashboard role={role} go={setActive} />
   ) : content === "history" ? (
-    <PatientHistory />
+    <PatientAppointments />
   ) : content === "schedule" && role === "patient" ? (
-    <Booking onDone={() => setActive("overview")} />
+    <AppointmentBooking onDone={() => setActive("overview")} />
   ) : (
     <WorkspacePanel role={role} active={content} />
   );
 
   return (
-    <Shell role={role} onExit={onExit} onChangeUnit={onChangeUnit} selectedUnit={selectedUnit} active={active} setActive={setActive}>
+    <Shell role={role} userName={userName} onExit={onExit} onChangeUnit={onChangeUnit} selectedUnit={selectedUnit} active={active} setActive={setActive}>
       {profileSection && (
         <ProfileNavigation
           active={profileSection}
@@ -571,46 +743,43 @@ function AppContent({ role, onExit, onChangeUnit, selectedUnit }: { role: Role; 
 
 export default function Home() {
   const [, navigate] = useLocation();
-  const [, params] = useRoute("/dashboard/:role");
-  const { user, logout } = useAuth();
+  const { user, logout, loading } = useAuth();
   const forceLogin = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("loggedOut");
-  const routeRole = isAppRole(params?.role) ? params.role : null;
-  const [role, setRole] = useState<Role | null>(routeRole);
-  const [showHub, setShowHub] = useState(false);
-  const [returningToLogin, setReturningToLogin] = useState(false);
+  const recoveringPassword = typeof window !== "undefined" && window.location.hash.includes("type=recovery");
+  const [showHub, setShowHub] = useState(() => !localStorage.getItem("GGL saude-unit"));
   const [selectedUnit, setSelectedUnit] = useState<HealthcareUnit | null>(() => {
     const unitId = localStorage.getItem("GGL saude-unit");
     return healthcareUnits.find((unit) => unit.id === unitId) ?? null;
   });
+  const role: Role | null = user
+    ? user.role === "doctor"
+      ? "doctor"
+      : user.role === "operator" || user.role === "admin"
+        ? "operator"
+        : "patient"
+    : null;
 
-  useEffect(() => {
-    if (routeRole && role !== routeRole) {
-      setRole(routeRole);
-      setShowHub(false);
-    }
-  }, [routeRole, role]);
+  if (loading) {
+    return <div className="flex min-h-screen items-center justify-center text-sm text-slate-500">Verificando sua sessão…</div>;
+  }
 
-  useEffect(() => {
-    if (user && !role && !returningToLogin) {
-      const stored = localStorage.getItem("GGL saude-role") as Role | null;
-      const authenticatedRole: Role = user.role === "doctor" ? "doctor" : user.role === "operator" || user.role === "admin" ? "operator" : stored ?? "patient";
-      setRole(authenticatedRole);
-      setShowHub(true);
-    }
-  }, [user, role, returningToLogin]);
-
-  if (forceLogin || !role) return <Login onEnter={(nextRole) => { setReturningToLogin(false); setRole(nextRole); setShowHub(true); localStorage.setItem("GGL saude-role", nextRole); }} />;
+  if (forceLogin || recoveringPassword || !user || !role) return <SupabaseLogin />;
   if (showHub) return <ClinicHub userName={user?.name ?? "João"} onSelect={(unit) => {
     localStorage.setItem("GGL saude-unit", unit.id);
     setSelectedUnit(unit);
     setShowHub(false);
-    navigate(persistSelectedRole(localStorage, role));
-  }} onBackToLogin={() => {
-    setReturningToLogin(true);
-    setRole(null);
-    setShowHub(false);
-    localStorage.removeItem("GGL saude-role");
-    navigate("/");
+    navigate(`/dashboard/${role}`);
+  }} onBackToLogin={async () => {
+    try {
+      await logout();
+      setSelectedUnit(null);
+      setShowHub(false);
+      localStorage.removeItem("GGL saude-unit");
+      navigate(clearAuthState(localStorage));
+    } catch (error) {
+      console.error("[Auth] Failed to sign out from clinic selection:", error);
+      toast.error("Não foi possível sair da conta. Tente novamente.");
+    }
   }} />;
-  return <AppContent role={role} selectedUnit={selectedUnit} onChangeUnit={() => { setShowHub(true); navigate("/"); }} onExit={async () => { await logout(); setRole(null); setSelectedUnit(null); localStorage.removeItem("GGL saude-unit"); navigate(clearAuthState(localStorage)); }} />;
+  return <AppContent role={role} userName={user.name?.trim() || "Usuário"} selectedUnit={selectedUnit} onChangeUnit={() => { setShowHub(true); navigate("/"); }} onExit={async () => { await logout(); setSelectedUnit(null); localStorage.removeItem("GGL saude-unit"); navigate(clearAuthState(localStorage)); }} />;
 }

@@ -33,7 +33,7 @@ export const roleProcedure = (...roles: Array<'patient' | 'doctor' | 'operator' 
     if (!ctx.user) {
       throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
     }
-    if (!roles.includes(ctx.user.role as 'patient' | 'doctor' | 'operator' | 'admin')) {
+    if (!roles.includes(ctx.user.role)) {
       throw new TRPCError({ code: "FORBIDDEN", message: "Seu perfil não tem permissão para esta operação." });
     }
     return next({ ctx: { ...ctx, user: ctx.user } });

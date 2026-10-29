@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../client/src/lib/supabase", () => ({
+  isSupabaseConfigured: true,
   supabase: {
     auth: {
       signInWithPassword: vi.fn(),

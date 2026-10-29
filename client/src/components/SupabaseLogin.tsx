@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { supabase } from "@/lib/supabase";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { ChevronRight, HeartPulse, LoaderCircle, ShieldCheck } from "lucide-react";
 import * as React from "react";
 import { useState, type FormEvent } from "react";
@@ -13,6 +13,7 @@ import { BrandLogo } from "./BrandLogo";
 type AuthMode = "sign_in" | "sign_up" | "update_password";
 
 export default function SupabaseLogin() {
+  const previewOnly = !isSupabaseConfigured;
   const [mode, setMode] = useState<AuthMode>(() =>
     typeof window !== "undefined" && window.location.hash.includes("type=recovery")
       ? "update_password"
@@ -26,6 +27,10 @@ export default function SupabaseLogin() {
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (previewOnly) {
+      setErrorMessage("Configure as credenciais do Supabase para entrar ou criar uma conta.");
+      return;
+    }
     setSubmitting(true);
     setErrorMessage("");
 
@@ -70,6 +75,10 @@ export default function SupabaseLogin() {
   };
 
   const signInWithGoogle = async () => {
+    if (previewOnly) {
+      setErrorMessage("Configure as credenciais do Supabase para entrar com Google.");
+      return;
+    }
     setSubmitting(true);
     setErrorMessage("");
     try {
@@ -85,6 +94,10 @@ export default function SupabaseLogin() {
   };
 
   const sendPasswordReset = async () => {
+    if (previewOnly) {
+      setErrorMessage("Configure as credenciais do Supabase para recuperar sua senha.");
+      return;
+    }
     if (!email.trim()) {
       setErrorMessage("Informe seu e-mail para receber o link de recuperação.");
       return;
@@ -150,6 +163,15 @@ export default function SupabaseLogin() {
 
             <Card className="border-0 bg-white shadow-[0_20px_60px_rgba(8,122,146,0.10)]">
               <CardContent className="space-y-5 p-7">
+                {previewOnly && (
+                  <p
+                    className="rounded-xl bg-amber-50 p-3 text-sm leading-relaxed text-amber-800"
+                    role="status"
+                  >
+                    Modo de visualização: configure VITE_SUPABASE_URL e
+                    VITE_SUPABASE_ANON_KEY para habilitar a autenticação.
+                  </p>
+                )}
                 <form onSubmit={submit} className="space-y-5">
                   {mode === "sign_up" && (
                     <div className="space-y-2">
@@ -186,7 +208,7 @@ export default function SupabaseLogin() {
                       {mode === "sign_in" && (
                         <button
                           type="button"
-                          disabled={submitting}
+                          disabled={submitting || previewOnly}
                           onClick={sendPasswordReset}
                           className="text-xs font-semibold text-[#087A92] hover:underline"
                         >
@@ -212,7 +234,7 @@ export default function SupabaseLogin() {
                   <Button
                     type="submit"
                     className="h-12 w-full bg-[#087A92] text-base hover:bg-[#076b80]"
-                    disabled={submitting}
+                    disabled={submitting || previewOnly}
                   >
                     {submitting && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
                     {mode === "sign_in" ? "Entrar" : mode === "sign_up" ? "Criar conta" : "Atualizar senha"}
@@ -227,7 +249,7 @@ export default function SupabaseLogin() {
                   type="button"
                   variant="outline"
                   onClick={signInWithGoogle}
-                  disabled={submitting}
+                  disabled={submitting || previewOnly}
                   className="h-12 w-full border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                 >
                   Continuar com Google

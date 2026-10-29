@@ -4,16 +4,16 @@ import type { Database } from "./database.types";
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    "Configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY before starting the app."
-  );
-}
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient<Database>(
+  supabaseUrl || "http://127.0.0.1:54321",
+  supabaseAnonKey || "preview-only-key",
+  {
   auth: {
     autoRefreshToken: true,
     detectSessionInUrl: true,
     persistSession: true,
   },
-});
+  },
+);

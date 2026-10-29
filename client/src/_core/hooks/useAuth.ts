@@ -1,5 +1,5 @@
 import { startLogin } from "@/const";
-import { supabase } from "@/lib/supabase";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { trpc } from "@/lib/trpc";
 import { useCallback, useEffect } from "react";
 
@@ -14,9 +14,11 @@ export function useAuth(options?: UseAuthOptions) {
   const meQuery = trpc.auth.me.useQuery(undefined, {
     retry: false,
     refetchOnWindowFocus: false,
+    enabled: isSupabaseConfigured,
   });
 
   useEffect(() => {
+    if (!isSupabaseConfigured) return;
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
@@ -26,6 +28,9 @@ export function useAuth(options?: UseAuthOptions) {
   }, [utils]);
 
   const logout = useCallback(async () => {
+    if (!isSupabaseConfigured) {
+      throw new Error("Configure o Supabase para sair de uma sessão.");
+    }
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
     utils.auth.me.setData(undefined, null);
@@ -46,7 +51,7 @@ export function useAuth(options?: UseAuthOptions) {
 
   return {
     user: meQuery.data ?? null,
-    loading: meQuery.isLoading,
+    loading: isSupabaseConfigured && meQuery.isLoading,
     error: meQuery.error ?? null,
     isAuthenticated: Boolean(meQuery.data),
     refresh: () => meQuery.refetch(),

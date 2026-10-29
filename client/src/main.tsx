@@ -1,5 +1,5 @@
 import { trpc } from "@/lib/trpc";
-import { supabase } from "@/lib/supabase";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { UNAUTHED_ERR_MSG } from "@shared/const";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink, TRPCClientError } from "@trpc/client";
@@ -40,6 +40,7 @@ const trpcClient = trpc.createClient({
       url: "/api/trpc",
       transformer: superjson,
       async headers() {
+        if (!isSupabaseConfigured) return {};
         const { data, error } = await supabase.auth.getSession();
         if (error) throw error;
         const token = data.session?.access_token;

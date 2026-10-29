@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useRoute } from "wouter";
+import { Link, useLocation, useRoute } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { startLogin } from "@/const";
 import { trpc } from "@/lib/trpc";
@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Building2, CalendarDays, Check, Clock3, FileText, HeartPulse, LayoutDashboard, LogOut, Mail, Menu, Search, ShieldCheck, Stethoscope, UserRound, Users, WalletCards, X } from "lucide-react";
+import { Bell, Building2, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, FileText, HeartPulse, LayoutDashboard, LogOut, Mail, Menu, Search, ShieldCheck, Stethoscope, UserRound, Users, WalletCards, X } from "lucide-react";
 
 type Role = "patient" | "doctor" | "operator";
 const roleLabels: Record<Role, string> = { patient: "Usuário comum / Paciente", doctor: "Médico", operator: "Operador" };
@@ -90,7 +90,7 @@ export function Login({ onEnter }: { onEnter: (role: Role) => void }) {
           <div className="mb-8"><p className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-[#18AFA0]">Bem-vindo à GGL saude</p><h2 className="text-3xl font-bold tracking-tight">Acesse sua conta</h2><p className="mt-2 text-slate-500">Entre para cuidar do que realmente importa.</p></div>
           <Card className="border-0 bg-white shadow-[0_20px_60px_rgba(8,122,146,0.10)]"><CardContent className="space-y-5 p-7">
             <div className="space-y-2"><Label htmlFor="email">E-mail</Label><Input id="email" type="email" placeholder="voce@exemplo.com" disabled={locked} /></div>
-            <div className="space-y-2"><div className="flex items-center justify-between"><Label htmlFor="password">Senha</Label><button className="text-xs font-semibold text-[#087A92] hover:underline">Esqueci minha senha</button></div><Input id="password" type="password" placeholder="••••••••" disabled={locked} /></div>
+            <div className="space-y-2"><div className="flex items-center justify-between"><Label htmlFor="password">Senha</Label><Link href="/recuperar-senha" className="text-xs font-semibold text-[#087A92] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087A92] focus-visible:ring-offset-2">Esqueci minha senha</Link></div><Input id="password" type="password" placeholder="••••••••" disabled={locked} /></div>
             {locked && <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">Conta temporariamente bloqueada após 3 tentativas. Tente novamente em 15 minutos.</div>}
             <Button type="button" className="h-12 w-full bg-[#087A92] text-base text-white hover:bg-[#076b80]" disabled={locked} onClick={() => { localStorage.setItem("GGL saude-role", "patient"); onEnter("patient"); }}>Entrar</Button>
             <p className="text-center text-xs text-slate-400">Ambiente seguro com autenticação protegida</p>
@@ -122,12 +122,389 @@ export function Login({ onEnter }: { onEnter: (role: Role) => void }) {
 
 function Shell({ role, onExit, onChangeUnit, selectedUnit, children, active, setActive }: { role: Role; onExit: () => void | Promise<void>; onChangeUnit: () => void; selectedUnit: HealthcareUnit | null; children: React.ReactNode; active: string; setActive: (value: string) => void }) {
   const nav = role === "patient" ? [{ id: "overview", label: "Visão geral", icon: LayoutDashboard }, { id: "schedule", label: "Novo agendamento", icon: CalendarDays }, { id: "history", label: "Meus agendamentos", icon: Clock3 }] : role === "doctor" ? [{ id: "overview", label: "Visão geral", icon: LayoutDashboard }, { id: "agenda", label: "Minha agenda", icon: CalendarDays }, { id: "patients", label: "Pacientes", icon: Users }] : [{ id: "overview", label: "Visão geral", icon: LayoutDashboard }, { id: "agenda", label: "Agenda da clínica", icon: CalendarDays }, { id: "schedule", label: "Novo agendamento", icon: UserRound }, { id: "reports", label: "Relatórios", icon: FileText }];
-  return <div className="min-h-screen bg-[#f7fbfb] text-slate-900"><aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-slate-100 bg-white lg:flex lg:flex-col"><div className="flex h-20 items-center border-b border-slate-100 px-7"><BrandLogo compact={false} /></div><div className="px-4 py-6"><p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Menu principal</p><nav className="space-y-1">{nav.map((item) => <button key={item.id} onClick={() => setActive(item.id)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm transition-all ${active === item.id ? "bg-[#087A92]/10 font-semibold text-[#087A92]" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"}`}><item.icon className="h-[18px] w-[18px]" />{item.label}</button>)}</nav></div><div className="mt-auto border-t border-slate-100 p-4"><div className="mb-3 flex items-center gap-3 rounded-xl bg-slate-50 p-3"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#087A92] to-[#4CCB73] text-xs font-bold text-white">{role === "doctor" ? "CR" : role === "operator" ? "AM" : "JS"}</div><div className="min-w-0"><p className="truncate text-sm font-semibold">{role === "doctor" ? "Dra. Camila Ribeiro" : role === "operator" ? "Ana Martins" : "João da Silva"}</p><p className="text-xs text-slate-400">{roleLabels[role]}</p></div></div><button onClick={onChangeUnit} className="mb-2 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#087A92] hover:bg-[#e7f7f5]"><Building2 className="h-4 w-4" /> Trocar unidade</button><button onClick={onExit} className="flex w-full items-center gap-3 px-3 py-2 text-sm text-slate-500 hover:text-red-600"><LogOut className="h-4 w-4" /> Sair da conta</button></div></aside><div className="lg:pl-64"><header className="sticky top-0 z-20 flex h-20 items-center justify-between border-b border-slate-100 bg-white/90 px-5 backdrop-blur-md sm:px-8"><div className="flex items-center gap-3 lg:hidden"><Menu className="h-5 w-5 text-slate-500" /><BrandLogo compact /></div><div className="hidden lg:block"><p className="text-sm text-slate-400">{selectedUnit?.name ?? (role === "doctor" ? "Painel médico" : role === "operator" ? "Operação da clínica" : "Área do paciente")}</p><h1 className="text-lg font-bold">Olá, {role === "doctor" ? "Camila" : role === "operator" ? "Ana" : "João"}</h1></div><div className="flex items-center gap-3"><button className="rounded-xl px-3 py-2 text-sm font-semibold text-[#087A92] hover:bg-[#e7f7f5] lg:hidden" onClick={onChangeUnit}>Trocar unidade</button><button className="relative rounded-xl p-2.5 text-slate-500 hover:bg-slate-50" onClick={() => toast.info("Você está em dia com as notificações.")}><Mail className="h-5 w-5" /><span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-[#4CCB73]" /></button><div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#087A92]/10 text-sm font-bold text-[#087A92]">{role === "doctor" ? "CR" : role === "operator" ? "AM" : "JS"}</div></div></header><main className="mx-auto max-w-[1440px] p-5 sm:p-8">{children}</main></div></div>;
+  return <div className="min-h-screen bg-[#f4f7f6] text-slate-900"><aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-slate-100 bg-white lg:flex lg:flex-col"><div className="flex h-20 items-center border-b border-slate-100 px-7"><BrandLogo compact={false} /></div><div className="px-4 py-6"><p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Menu principal</p><nav className="space-y-1">{nav.map((item) => <button key={item.id} onClick={() => setActive(item.id)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm transition-all ${active === item.id ? "bg-[#087A92]/10 font-semibold text-[#087A92]" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"}`}><item.icon className="h-[18px] w-[18px]" />{item.label}</button>)}</nav></div><div className="mt-auto border-t border-slate-100 p-4"><div className="mb-3 flex items-center gap-3 rounded-xl bg-slate-50 p-3"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#087A92] to-[#4CCB73] text-xs font-bold text-white">{role === "doctor" ? "CR" : role === "operator" ? "AM" : "JS"}</div><div className="min-w-0"><p className="truncate text-sm font-semibold">{role === "doctor" ? "Dra. Camila Ribeiro" : role === "operator" ? "Ana Martins" : "João da Silva"}</p><p className="text-xs text-slate-400">{roleLabels[role]}</p></div></div><button onClick={onChangeUnit} className="mb-2 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#087A92] hover:bg-[#e7f7f5]"><Building2 className="h-4 w-4" /> Trocar unidade</button><button onClick={onExit} className="flex w-full items-center gap-3 px-3 py-2 text-sm text-slate-500 hover:text-red-600"><LogOut className="h-4 w-4" /> Sair da conta</button></div></aside><div className="lg:pl-64"><header className="sticky top-0 z-20 flex h-20 items-center justify-between border-b border-slate-100 bg-white/90 px-5 backdrop-blur-md sm:px-8"><div className="flex items-center gap-3 lg:hidden"><Menu className="h-5 w-5 text-slate-500" /><BrandLogo compact /></div><div className="hidden lg:block"><p className="text-sm text-slate-400">{selectedUnit?.name ?? (role === "doctor" ? "Painel médico" : role === "operator" ? "Operação da clínica" : "Área do paciente")}</p><h1 className="text-lg font-bold">Olá, {role === "doctor" ? "Camila" : role === "operator" ? "Ana" : "João"}</h1></div><div className="flex items-center gap-3"><button className="rounded-xl px-3 py-2 text-sm font-semibold text-[#087A92] hover:bg-[#e7f7f5] lg:hidden" onClick={onChangeUnit}>Trocar unidade</button><button className="relative rounded-xl p-2.5 text-slate-500 hover:bg-slate-50" onClick={() => toast.info("Você está em dia com as notificações.")}><Mail className="h-5 w-5" /><span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-[#4CCB73]" /></button><div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#087A92]/10 text-sm font-bold text-[#087A92]">{role === "doctor" ? "CR" : role === "operator" ? "AM" : "JS"}</div></div></header><main className="mx-auto w-full max-w-[1600px] p-4 sm:p-6 lg:p-7">{children}</main></div></div>;
 }
 
 function Overview({ role, go }: { role: Role; go: (id: string) => void }) {
   const isPatient = role === "patient";
-  return <div className="space-y-8"><div className="flex flex-col justify-between gap-4 md:flex-row md:items-end"><div><p className="mb-2 text-sm font-medium text-[#18AFA0]">{isPatient ? "Terça-feira, 17 de junho de 2026" : "Resumo operacional"}</p><h2 className="text-3xl font-bold tracking-[-0.03em]">{isPatient ? "Seu cuidado em dia." : role === "doctor" ? "Sua agenda, sob controle." : "A clínica em movimento."}</h2><p className="mt-2 text-slate-500">{isPatient ? "Acompanhe seus próximos passos e cuide do seu tempo." : "Veja os principais indicadores de hoje."}</p></div>{isPatient && <Button onClick={() => go("schedule")} className="bg-[#087A92] text-white hover:bg-[#076b80]"><CalendarDays className="mr-2 h-4 w-4" /> Novo agendamento</Button>}</div><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{(isPatient ? [{ label: "Próxima consulta", value: "18 jun", hint: "Dra. Camila · 09:30", icon: CalendarDays, tint: "bg-[#087A92]/10 text-[#087A92]" }, { label: "Consultas realizadas", value: "12", hint: "+2 este semestre", icon: Check, tint: "bg-[#4CCB73]/15 text-[#20864b]" }, { label: "Pagamentos", value: "R$ 280", hint: "Próximo pagamento", icon: WalletCards, tint: "bg-amber-50 text-amber-600" }] : role === "doctor" ? [{ label: "Consultas hoje", value: "08", hint: "2 aguardando confirmação", icon: CalendarDays, tint: "bg-[#087A92]/10 text-[#087A92]" }, { label: "Pacientes ativos", value: "124", hint: "+8 neste mês", icon: Users, tint: "bg-[#4CCB73]/15 text-[#20864b]" }, { label: "Taxa de presença", value: "94%", hint: "+6% vs. mês anterior", icon: Check, tint: "bg-violet-50 text-violet-600" }, { label: "Receita mensal", value: "R$ 18,4k", hint: "Até o momento", icon: WalletCards, tint: "bg-amber-50 text-amber-600" }] : [{ label: "Agendamentos hoje", value: "32", hint: "6 novos desde ontem", icon: CalendarDays, tint: "bg-[#087A92]/10 text-[#087A92]" }, { label: "Ocupação da agenda", value: "86%", hint: "Nesta semana", icon: Users, tint: "bg-[#4CCB73]/15 text-[#20864b]" }, { label: "Aguardando confirmação", value: "06", hint: "Requer atenção", icon: Clock3, tint: "bg-amber-50 text-amber-600" }, { label: "Cancelamentos", value: "02", hint: "Hoje", icon: X, tint: "bg-red-50 text-red-600" }]).map((item) => <Card key={item.label} className="border-0 shadow-sm"><CardContent className="flex items-start justify-between p-5"><div><p className="text-sm text-slate-500">{item.label}</p><p className="mt-2 text-2xl font-bold">{item.value}</p><p className="mt-1 text-xs text-slate-400">{item.hint}</p></div><div className={`rounded-xl p-3 ${item.tint}`}><item.icon className="h-5 w-5" /></div></CardContent></Card>)}</div><Card className="border-0 shadow-sm"><CardHeader><CardTitle className="text-lg">{isPatient ? "Próximos cuidados" : "Agenda de hoje"}</CardTitle></CardHeader><CardContent className="space-y-3">{appointments.slice(0, isPatient ? 2 : 1).map((item) => <div key={item.id} className="flex items-center gap-4 rounded-xl border border-slate-100 p-4"><div className={`flex h-12 w-12 flex-col items-center justify-center rounded-xl ${item.color}`}><span className="text-sm font-bold">{item.day}</span><span className="text-[9px] font-bold">{item.month}</span></div><div className="min-w-0 flex-1"><p className="truncate font-semibold">{item.title}</p><p className="mt-1 text-sm text-slate-500">{item.professional} · {item.time}</p></div><Badge variant="outline" className="hidden sm:inline-flex">{item.status}</Badge><Button variant="ghost" size="sm" onClick={() => toast.info("Detalhes do agendamento")}>Detalhes</Button></div>)}</CardContent></Card></div>;
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date(2026, 5, 1));
+  const [selectedDay, setSelectedDay] = useState(17);
+  const monthLabel = new Intl.DateTimeFormat("pt-BR", {
+    month: "long",
+    year: "numeric",
+  }).format(calendarMonth);
+  const monthDays = new Date(
+    calendarMonth.getFullYear(),
+    calendarMonth.getMonth() + 1,
+    0,
+  ).getDate();
+  const firstWeekday = (new Date(
+    calendarMonth.getFullYear(),
+    calendarMonth.getMonth(),
+    1,
+  ).getDay() + 6) % 7;
+  const calendarCells = [
+    ...Array.from({ length: firstWeekday }, () => null),
+    ...Array.from({ length: monthDays }, (_, index) => index + 1),
+  ];
+  const appointmentDays =
+    calendarMonth.getFullYear() === 2026 && calendarMonth.getMonth() === 5
+      ? appointments.map((item) => Number(item.day))
+      : [];
+  const stats = isPatient
+    ? [
+        {
+          label: "Próxima consulta",
+          value: "18 jun",
+          hint: "Dra. Camila · 09:30",
+          icon: CalendarDays,
+          tint: "bg-[#087A92]/10 text-[#087A92]",
+        },
+        {
+          label: "Consultas realizadas",
+          value: "12",
+          hint: "+2 este semestre",
+          icon: Check,
+          tint: "bg-[#4CCB73]/15 text-[#20864b]",
+        },
+        {
+          label: "Pagamentos",
+          value: "R$ 280",
+          hint: "Próximo pagamento",
+          icon: WalletCards,
+          tint: "bg-amber-50 text-amber-600",
+        },
+      ]
+    : role === "doctor"
+      ? [
+          {
+            label: "Consultas hoje",
+            value: "08",
+            hint: "2 aguardando confirmação",
+            icon: CalendarDays,
+            tint: "bg-[#087A92]/10 text-[#087A92]",
+          },
+          {
+            label: "Pacientes ativos",
+            value: "124",
+            hint: "+8 neste mês",
+            icon: Users,
+            tint: "bg-[#4CCB73]/15 text-[#20864b]",
+          },
+          {
+            label: "Taxa de presença",
+            value: "94%",
+            hint: "+6% vs. mês anterior",
+            icon: Check,
+            tint: "bg-violet-50 text-violet-600",
+          },
+          {
+            label: "Receita mensal",
+            value: "R$ 18,4k",
+            hint: "Até o momento",
+            icon: WalletCards,
+            tint: "bg-amber-50 text-amber-600",
+          },
+        ]
+      : [
+          {
+            label: "Agendamentos hoje",
+            value: "32",
+            hint: "6 novos desde ontem",
+            icon: CalendarDays,
+            tint: "bg-[#087A92]/10 text-[#087A92]",
+          },
+          {
+            label: "Ocupação da agenda",
+            value: "86%",
+            hint: "Nesta semana",
+            icon: Users,
+            tint: "bg-[#4CCB73]/15 text-[#20864b]",
+          },
+          {
+            label: "Aguardando confirmação",
+            value: "06",
+            hint: "Requer atenção",
+            icon: Clock3,
+            tint: "bg-amber-50 text-amber-600",
+          },
+          {
+            label: "Cancelamentos",
+            value: "02",
+            hint: "Hoje",
+            icon: X,
+            tint: "bg-red-50 text-red-600",
+          },
+        ];
+
+  const changeMonth = (amount: number) => {
+    setCalendarMonth(
+      (month) => new Date(month.getFullYear(), month.getMonth() + amount, 1),
+    );
+    setSelectedDay(1);
+  };
+
+  const dashboardHeader = (
+    <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+      <div>
+        <p className="mb-2 text-sm font-medium text-[#18AFA0]">
+          {isPatient ? "Quarta-feira, 17 de junho de 2026" : "Resumo operacional"}
+        </p>
+        <h2 className="text-3xl font-bold tracking-[-0.03em]">
+          {isPatient
+            ? "Seu cuidado em dia."
+            : role === "doctor"
+              ? "Sua agenda, sob controle."
+              : "A clínica em movimento."}
+        </h2>
+        <p className="mt-2 text-sm text-slate-500">
+          {isPatient
+            ? "Acompanhe seus próximos passos e cuide do seu tempo."
+            : "Veja os principais indicadores de hoje."}
+        </p>
+      </div>
+      {isPatient && (
+        <Button
+          onClick={() => go("schedule")}
+          className="h-10 shrink-0 bg-[#087A92] text-white hover:bg-[#076b80]"
+        >
+          <CalendarDays className="mr-2 h-4 w-4" />
+          Novo agendamento
+        </Button>
+      )}
+    </div>
+  );
+
+  const statsGrid = (
+    <div
+      className={`grid gap-4 ${isPatient ? "sm:grid-cols-3" : "sm:grid-cols-2 2xl:grid-cols-4"}`}
+    >
+      {stats.map((item) => (
+        <Card
+          key={item.label}
+          className="rounded-xl border-0 bg-white shadow-[0_1px_4px_rgba(15,23,42,0.05)]"
+        >
+          <CardContent className="flex items-center justify-between gap-3 p-4">
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-slate-500">{item.label}</p>
+              <p className="mt-1.5 text-2xl font-bold leading-none">{item.value}</p>
+              <p className="mt-2 truncate text-xs text-slate-400">{item.hint}</p>
+            </div>
+            <div className={`shrink-0 rounded-full p-2.5 ${item.tint}`}>
+              <item.icon className="h-4 w-4" />
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+
+  const appointmentsCard = (
+    <Card className="flex min-h-[260px] flex-1 flex-col rounded-xl border-0 bg-white shadow-[0_1px_4px_rgba(15,23,42,0.05)]">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 px-5 pb-3 pt-5">
+        <div>
+          <CardTitle className="text-base">
+            {isPatient ? "Próximos cuidados" : "Agenda de hoje"}
+          </CardTitle>
+          <p className="mt-1 text-xs text-slate-500">
+            {isPatient ? "Seus próximos compromissos de saúde" : "Resumo dos atendimentos"}
+          </p>
+        </div>
+        {isPatient && (
+          <button
+            type="button"
+            onClick={() => go("history")}
+            className="text-xs font-semibold text-[#087A92] hover:underline"
+          >
+            Ver todos
+          </button>
+        )}
+      </CardHeader>
+      <CardContent className="flex flex-1 flex-col gap-2 px-5 pb-5">
+        {appointments.slice(0, isPatient ? 2 : 1).map((item) => (
+          <div
+            key={item.id}
+            className="flex flex-wrap items-center gap-3 rounded-xl bg-[#f8faf9] p-3 sm:flex-nowrap"
+          >
+            <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-[#e7f7f5] text-[#087A92]">
+              <span className="text-sm font-bold leading-none">{item.day}</span>
+              <span className="mt-1 text-[9px] font-bold">{item.month}</span>
+            </div>
+            <div className="min-w-[130px] flex-1">
+              <p className="truncate text-sm font-semibold">{item.title}</p>
+              <p className="mt-1 truncate text-xs text-slate-500">
+                {item.professional} · {item.time}
+              </p>
+            </div>
+            <div className="ml-auto flex w-full items-center justify-end gap-2 sm:w-auto">
+              <Badge
+                variant="outline"
+                className={`whitespace-nowrap border-0 text-[10px] ${item.color}`}
+              >
+                {item.status}
+              </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 text-xs text-[#087A92]"
+                onClick={() => toast.info("Detalhes do agendamento")}
+              >
+                Detalhes
+              </Button>
+            </div>
+          </div>
+        ))}
+        <div className="mt-auto flex items-center gap-2 border-t border-slate-100 pt-3 text-xs text-slate-500">
+          <ShieldCheck className="h-4 w-4 text-[#087A92]" />
+          Seus compromissos estão organizados em um só lugar.
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  if (!isPatient) {
+    return (
+      <div className="space-y-5">
+        {dashboardHeader}
+        {statsGrid}
+        {appointmentsCard}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid items-stretch gap-5 min-[1200px]:min-h-[calc(100vh-8rem)] min-[1200px]:grid-cols-[minmax(0,2.2fr)_minmax(280px,0.9fr)]">
+      <section className="flex min-w-0 flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => go("profile")}
+            className="h-9 rounded-lg border-slate-200 bg-white px-3 text-xs text-slate-600 hover:border-[#087A92]/30 hover:bg-[#e7f7f5] hover:text-[#087A92]"
+          >
+            <UserRound className="mr-1.5 h-4 w-4" />
+            Perfil
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => go("my-data")}
+            className="h-9 rounded-lg border-slate-200 bg-white px-3 text-xs text-slate-600 hover:border-[#087A92]/30 hover:bg-[#e7f7f5] hover:text-[#087A92]"
+          >
+            <FileText className="mr-1.5 h-4 w-4" />
+            Meus dados
+          </Button>
+        </div>
+        {dashboardHeader}
+        {statsGrid}
+        {appointmentsCard}
+      </section>
+
+      <aside className="flex min-w-0 flex-col gap-4 min-[1200px]:sticky min-[1200px]:top-24">
+        <Card className="rounded-xl border-0 bg-white shadow-[0_1px_4px_rgba(15,23,42,0.05)]">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-5 pb-3 pt-5">
+            <div>
+              <CardTitle className="text-base">Calendário rápido</CardTitle>
+              <p className="mt-1 text-xs capitalize text-slate-500">{monthLabel}</p>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                aria-label="Mês anterior"
+                onClick={() => changeMonth(-1)}
+                className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                aria-label="Próximo mês"
+                onClick={() => changeMonth(1)}
+                className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </CardHeader>
+          <CardContent className="px-5 pb-5">
+            <div className="mb-2 grid grid-cols-7 text-center text-[10px] font-semibold uppercase text-slate-400">
+              {["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map((day) => (
+                <span key={day} className="py-1">{day}</span>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-y-1 text-center">
+              {calendarCells.map((day, index) =>
+                day === null ? (
+                  <span key={`empty-${index}`} aria-hidden="true" />
+                ) : (
+                  <button
+                    key={day}
+                    type="button"
+                    aria-label={`${day} de ${monthLabel}`}
+                    aria-pressed={selectedDay === day}
+                    onClick={() => setSelectedDay(day)}
+                    className={`relative mx-auto flex h-8 w-8 items-center justify-center rounded-full text-xs transition-colors ${
+                      selectedDay === day
+                        ? "bg-[#087A92] font-semibold text-white"
+                        : "text-slate-600 hover:bg-[#e7f7f5] hover:text-[#087A92]"
+                    }`}
+                  >
+                    {day}
+                    {appointmentDays.includes(day) && (
+                      <span
+                        className={`absolute bottom-0.5 h-1 w-1 rounded-full ${
+                          selectedDay === day ? "bg-white" : "bg-[#18AFA0]"
+                        }`}
+                      />
+                    )}
+                  </button>
+                ),
+              )}
+            </div>
+            <div className="mt-3 flex items-center gap-2 rounded-lg bg-[#f4f7f6] px-3 py-2 text-xs text-slate-500">
+              <span className="h-2 w-2 rounded-full bg-[#18AFA0]" />
+              {appointmentDays.includes(selectedDay)
+                ? `Você tem um cuidado agendado para ${selectedDay} de ${monthLabel}.`
+                : `Nenhum agendamento em ${selectedDay} de ${monthLabel}.`}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-xl border-0 bg-white shadow-[0_1px_4px_rgba(15,23,42,0.05)]">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-5 pb-3 pt-5">
+            <CardTitle className="text-base">Notificações recentes</CardTitle>
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#e7f7f5] text-[#087A92]">
+              <Bell className="h-3.5 w-3.5" />
+            </span>
+          </CardHeader>
+          <CardContent className="space-y-3 px-5 pb-5">
+            <div className="flex gap-3">
+              <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#18AFA0]" />
+              <div>
+                <p className="text-xs font-semibold text-slate-700">Consulta confirmada</p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                  Dra. Camila Ribeiro · 18 jun, às 09:30
+                </p>
+                <p className="mt-1 text-[10px] text-slate-400">Hoje, 09:14</p>
+              </div>
+            </div>
+            <div className="border-t border-slate-100 pt-3">
+              <div className="flex gap-3">
+                <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-amber-400" />
+                <div>
+                  <p className="text-xs font-semibold text-slate-700">Pagamento pendente</p>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                    Exame de imagem · vence em 22 jun
+                  </p>
+                  <p className="mt-1 text-[10px] text-slate-400">Ontem, 16:42</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </aside>
+    </div>
+  );
 }
 
 function Booking({ onDone }: { onDone: () => void }) {
@@ -181,10 +558,12 @@ function AppContent({ role, onExit, onChangeUnit, selectedUnit }: { role: Role; 
 
   return (
     <Shell role={role} onExit={onExit} onChangeUnit={onChangeUnit} selectedUnit={selectedUnit} active={active} setActive={setActive}>
-      <ProfileNavigation
-        active={profileSection}
-        onSelect={(section) => setActive(section)}
-      />
+      {profileSection && (
+        <ProfileNavigation
+          active={profileSection}
+          onSelect={(section) => setActive(section)}
+        />
+      )}
       {view}
     </Shell>
   );

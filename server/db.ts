@@ -5,6 +5,17 @@ import type { Database } from "../client/src/lib/database.types";
 type RequestSupabase = SupabaseClient<Database>;
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 
+export async function hasCurrentAccountConsent(supabase: RequestSupabase) {
+  const { data, error } = await supabase.rpc("has_current_account_consent");
+  if (error) throw error;
+  return data;
+}
+
+export async function recordCurrentAccountConsent(supabase: RequestSupabase) {
+  const { error } = await supabase.rpc("record_current_account_consent");
+  if (error) throw error;
+}
+
 function toUser(profile: ProfileRow): User {
   return {
     id: profile.id,
@@ -72,6 +83,149 @@ export async function listAppointmentsForPatient(
   return data;
 }
 
+export async function listPatientProfiles(
+  supabase: RequestSupabase,
+  ownerUserId: string
+) {
+  const { data, error } = await supabase
+    .from("patient_profiles")
+    .select("*")
+    .eq("owner_user_id", ownerUserId)
+    .eq("active", true)
+    .order("is_self", { ascending: false })
+    .order("created_at");
+  if (error) throw error;
+  return data;
+}
+
+export async function updateSelfPatientProfile(
+  supabase: RequestSupabase,
+  ownerUserId: string,
+  input: {
+    fullName: string;
+    cpf: string;
+    birthDate: string;
+    phone: string | null;
+  }
+) {
+  const { data, error } = await supabase
+    .from("patient_profiles")
+    .update({
+      full_name: input.fullName,
+      cpf: input.cpf,
+      birth_date: input.birthDate,
+      phone: input.phone,
+    })
+    .eq("owner_user_id", ownerUserId)
+    .eq("is_self", true)
+    .eq("active", true)
+    .select("*")
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function createPatientProfile(
+  supabase: RequestSupabase,
+  ownerUserId: string,
+  input: {
+    fullName: string;
+    cpf: string | null;
+    birthDate: string;
+    phone: string | null;
+    relationship: string;
+    consentEmail: string | null;
+    legalGuardianConfirmed: boolean;
+  }
+) {
+  const { data, error } = await supabase
+    .from("patient_profiles")
+    .insert({
+      owner_user_id: ownerUserId,
+      is_self: false,
+      full_name: input.fullName,
+      cpf: input.cpf,
+      birth_date: input.birthDate,
+      phone: input.phone,
+      relationship: input.relationship,
+      consent_email: input.consentEmail,
+      legal_guardian_confirmed: input.legalGuardianConfirmed,
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updatePatientProfile(
+  supabase: RequestSupabase,
+  ownerUserId: string,
+  profileId: string,
+  input: {
+    fullName: string;
+    cpf: string | null;
+    birthDate: string;
+    phone: string | null;
+    relationship: string;
+    consentEmail: string | null;
+    legalGuardianConfirmed: boolean;
+  }
+) {
+  const { data, error } = await supabase
+    .from("patient_profiles")
+    .update({
+      full_name: input.fullName,
+      cpf: input.cpf,
+      birth_date: input.birthDate,
+      phone: input.phone,
+      relationship: input.relationship,
+      consent_email: input.consentEmail,
+      legal_guardian_confirmed: input.legalGuardianConfirmed,
+    })
+    .eq("id", profileId)
+    .eq("owner_user_id", ownerUserId)
+    .eq("is_self", false)
+    .eq("active", true)
+    .select("*")
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function archivePatientProfile(
+  supabase: RequestSupabase,
+  ownerUserId: string,
+  profileId: string
+) {
+  const { data, error } = await supabase
+    .from("patient_profiles")
+    .update({ active: false })
+    .eq("id", profileId)
+    .eq("owner_user_id", ownerUserId)
+    .eq("is_self", false)
+    .eq("active", true)
+    .select("id")
+    .maybeSingle();
+  if (error) throw error;
+  return Boolean(data);
+}
+
+export async function verifyAdultDependent(
+  supabase: RequestSupabase,
+  profileId: string
+) {
+  const { error } = await supabase.rpc("verify_adult_dependent", {
+    p_patient_profile_id: profileId,
+  });
+  if (error) throw error;
+}
+
+export async function listPendingAdultDependents(supabase: RequestSupabase) {
+  const { data, error } = await supabase.rpc("list_pending_adult_dependents");
+  if (error) throw error;
+  return data;
+}
+
 export async function createHeldAppointment(
   supabase: RequestSupabase,
   input: {
@@ -80,6 +234,7 @@ export async function createHeldAppointment(
     kind: "consultation" | "exam";
     startsAt: Date;
     endsAt: Date;
+    patientProfileId: string;
   }
 ) {
   const { data, error } = await supabase.rpc("create_held_appointment", {
@@ -88,6 +243,7 @@ export async function createHeldAppointment(
     p_kind: input.kind,
     p_starts_at: input.startsAt.toISOString(),
     p_ends_at: input.endsAt.toISOString(),
+    p_patient_profile_id: input.patientProfileId,
   });
   if (error) throw error;
   return data;

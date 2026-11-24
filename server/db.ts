@@ -70,6 +70,21 @@ export async function listProfessionals(
   return data;
 }
 
+export async function listProfessionalAvailability(
+  supabase: RequestSupabase,
+  professionalId: string,
+  from: string,
+  to: string
+) {
+  const { data, error } = await supabase.rpc("get_professional_availability", {
+    p_professional_id: professionalId,
+    p_from: from,
+    p_to: to,
+  });
+  if (error) throw error;
+  return data;
+}
+
 export async function listAppointmentsForPatient(
   supabase: RequestSupabase,
   patientId: string
@@ -81,6 +96,128 @@ export async function listAppointmentsForPatient(
     .order("starts_at", { ascending: true });
   if (error) throw error;
   return data;
+}
+
+export async function listPatientAppointmentsWithDetails(
+  supabase: RequestSupabase,
+  patientId: string
+) {
+  const appointments = await listAppointmentsForPatient(supabase, patientId);
+  if (!appointments.length) return [];
+
+  const appointmentIds = appointments.map(appointment => appointment.id);
+  const professionalIds = Array.from(
+    new Set(appointments.map(appointment => appointment.professional_id))
+  );
+  const clinicIds = Array.from(
+    new Set(appointments.map(appointment => appointment.clinic_id))
+  );
+  const [
+    professionalsResult,
+    clinicsResult,
+    paymentsResult,
+    requestsResult,
+    historyResult,
+  ] = await Promise.all([
+    supabase.from("professionals").select("*").in("id", professionalIds),
+    supabase.from("clinics").select("*").in("id", clinicIds),
+    supabase.from("payments").select("*").in("appointment_id", appointmentIds),
+    supabase
+      .from("appointment_change_requests")
+      .select("*")
+      .in("appointment_id", appointmentIds),
+    supabase
+      .from("appointment_history")
+      .select("*")
+      .in("appointment_id", appointmentIds)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  if (professionalsResult.error) throw professionalsResult.error;
+  if (clinicsResult.error) throw clinicsResult.error;
+  if (paymentsResult.error) throw paymentsResult.error;
+  if (requestsResult.error) throw requestsResult.error;
+  if (historyResult.error) throw historyResult.error;
+
+  return appointments.map(appointment => ({
+    ...appointment,
+    professional:
+      professionalsResult.data.find(
+        professional => professional.id === appointment.professional_id
+      ) ?? null,
+    clinic:
+      clinicsResult.data.find(clinic => clinic.id === appointment.clinic_id) ??
+      null,
+    payments: paymentsResult.data.filter(
+      payment => payment.appointment_id === appointment.id
+    ),
+    changeRequests: requestsResult.data.filter(
+      request => request.appointment_id === appointment.id
+    ),
+    history: historyResult.data.filter(
+      event => event.appointment_id === appointment.id
+    ),
+  }));
+}
+
+export async function listClinicalDocumentsForAppointment(
+  supabase: RequestSupabase,
+  appointmentId: string
+) {
+  const { data, error } = await supabase
+    .from("clinical_documents")
+    .select("*")
+    .eq("appointment_id", appointmentId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
+export async function requestAppointmentChange(
+  supabase: RequestSupabase,
+  input: {
+    appointmentId: string;
+    kind: "cancellation" | "reschedule";
+    reason: string;
+    startsAt?: Date;
+    endsAt?: Date;
+  }
+) {
+  const { data, error } = await supabase.rpc("request_appointment_change", {
+    p_appointment_id: input.appointmentId,
+    p_kind: input.kind,
+    p_reason: input.reason,
+    p_starts_at: input.startsAt?.toISOString() ?? null,
+    p_ends_at: input.endsAt?.toISOString() ?? null,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function listPendingAppointmentChangeRequests(
+  supabase: RequestSupabase
+) {
+  const { data, error } = await supabase
+    .from("appointment_change_requests")
+    .select("*")
+    .eq("status", "pending")
+    .order("created_at");
+  if (error) throw error;
+  return data;
+}
+
+export async function resolveAppointmentChangeRequest(
+  supabase: RequestSupabase,
+  requestId: string,
+  approve: boolean,
+  resolutionNote: string | null
+) {
+  const { error } = await supabase.rpc("resolve_appointment_change_request", {
+    p_request_id: requestId,
+    p_approve: approve,
+    p_resolution_note: resolutionNote,
+  });
+  if (error) throw error;
 }
 
 export async function listPatientProfiles(
@@ -293,7 +430,10 @@ export async function listAppointmentsForProfessional(
   const { data, error } = await supabase
     .from("appointments")
     .select("*")
-    .in("professional_id", professionals.map((professional) => professional.id))
+    .in(
+      "professional_id",
+      professionals.map(professional => professional.id)
+    )
     .order("starts_at", { ascending: true });
   if (error) throw error;
   return data;

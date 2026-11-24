@@ -17,9 +17,27 @@ export type Database = {
   public: {
     Tables: {
       clinics: Table<
-        { id: string; name: string; city: string | null; created_at: string },
-        { id?: string; name: string; city?: string | null; created_at?: string },
-        { id?: string; name?: string; city?: string | null; created_at?: string }
+        {
+          id: string;
+          name: string;
+          city: string | null;
+          timezone: string;
+          created_at: string;
+        },
+        {
+          id?: string;
+          name: string;
+          city?: string | null;
+          timezone?: string;
+          created_at?: string;
+        },
+        {
+          id?: string;
+          name?: string;
+          city?: string | null;
+          timezone?: string;
+          created_at?: string;
+        }
       >;
       profiles: Table<
         {
@@ -65,7 +83,12 @@ export type Database = {
           relationship: string;
           consent_email: string | null;
           legal_guardian_confirmed: boolean;
-          authorization_status: "self" | "guardian_attested" | "pending" | "verified" | "revoked";
+          authorization_status:
+            | "self"
+            | "guardian_attested"
+            | "pending"
+            | "verified"
+            | "revoked";
           verified_by: string | null;
           verified_at: string | null;
           postal_code: string | null;
@@ -90,7 +113,12 @@ export type Database = {
           relationship?: string;
           consent_email?: string | null;
           legal_guardian_confirmed?: boolean;
-          authorization_status?: "self" | "guardian_attested" | "pending" | "verified" | "revoked";
+          authorization_status?:
+            | "self"
+            | "guardian_attested"
+            | "pending"
+            | "verified"
+            | "revoked";
           verified_by?: string | null;
           verified_at?: string | null;
           postal_code?: string | null;
@@ -115,7 +143,12 @@ export type Database = {
           relationship?: string;
           consent_email?: string | null;
           legal_guardian_confirmed?: boolean;
-          authorization_status?: "self" | "guardian_attested" | "pending" | "verified" | "revoked";
+          authorization_status?:
+            | "self"
+            | "guardian_attested"
+            | "pending"
+            | "verified"
+            | "revoked";
           verified_by?: string | null;
           verified_at?: string | null;
           postal_code?: string | null;
@@ -203,7 +236,12 @@ export type Database = {
           professional_id: string;
           clinic_id: string;
           kind: "consultation" | "exam";
-          status: "held" | "pending_payment" | "confirmed" | "cancelled" | "completed";
+          status:
+            | "held"
+            | "pending_payment"
+            | "confirmed"
+            | "cancelled"
+            | "completed";
           starts_at: string;
           ends_at: string;
           hold_expires_at: string | null;
@@ -218,7 +256,12 @@ export type Database = {
           professional_id: string;
           clinic_id: string;
           kind: "consultation" | "exam";
-          status?: "held" | "pending_payment" | "confirmed" | "cancelled" | "completed";
+          status?:
+            | "held"
+            | "pending_payment"
+            | "confirmed"
+            | "cancelled"
+            | "completed";
           starts_at: string;
           ends_at: string;
           hold_expires_at?: string | null;
@@ -233,11 +276,119 @@ export type Database = {
           professional_id?: string;
           clinic_id?: string;
           kind?: "consultation" | "exam";
-          status?: "held" | "pending_payment" | "confirmed" | "cancelled" | "completed";
+          status?:
+            | "held"
+            | "pending_payment"
+            | "confirmed"
+            | "cancelled"
+            | "completed";
           starts_at?: string;
           ends_at?: string;
           hold_expires_at?: string | null;
           cancellation_policy?: string | null;
+          created_at?: string;
+        }
+      >;
+      appointment_history: Table<
+        {
+          id: string;
+          appointment_id: string;
+          actor_id: string | null;
+          action:
+            | "created"
+            | "rescheduled"
+            | "cancelled"
+            | "cancellation_requested"
+            | "reschedule_requested"
+            | "change_request_approved"
+            | "change_request_rejected";
+          previous_status: string | null;
+          new_status: string | null;
+          previous_starts_at: string | null;
+          new_starts_at: string | null;
+          reason: string | null;
+          created_at: string;
+        },
+        {
+          id?: string;
+          appointment_id: string;
+          actor_id?: string | null;
+          action:
+            | "created"
+            | "rescheduled"
+            | "cancelled"
+            | "cancellation_requested"
+            | "reschedule_requested"
+            | "change_request_approved"
+            | "change_request_rejected";
+          previous_status?: string | null;
+          new_status?: string | null;
+          previous_starts_at?: string | null;
+          new_starts_at?: string | null;
+          reason?: string | null;
+          created_at?: string;
+        },
+        {
+          id?: string;
+          appointment_id?: string;
+          actor_id?: string | null;
+          action?:
+            | "created"
+            | "rescheduled"
+            | "cancelled"
+            | "cancellation_requested"
+            | "reschedule_requested"
+            | "change_request_approved"
+            | "change_request_rejected";
+          previous_status?: string | null;
+          new_status?: string | null;
+          previous_starts_at?: string | null;
+          new_starts_at?: string | null;
+          reason?: string | null;
+          created_at?: string;
+        }
+      >;
+      appointment_change_requests: Table<
+        {
+          id: string;
+          appointment_id: string;
+          requested_by: string;
+          kind: "cancellation" | "reschedule";
+          status: "pending" | "approved" | "rejected";
+          reason: string;
+          requested_starts_at: string | null;
+          requested_ends_at: string | null;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          resolution_note: string | null;
+          created_at: string;
+        },
+        {
+          id?: string;
+          appointment_id: string;
+          requested_by: string;
+          kind: "cancellation" | "reschedule";
+          status?: "pending" | "approved" | "rejected";
+          reason: string;
+          requested_starts_at?: string | null;
+          requested_ends_at?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          resolution_note?: string | null;
+          created_at?: string;
+        },
+        {
+          id?: string;
+          appointment_id?: string;
+          requested_by?: string;
+          kind?: "cancellation" | "reschedule";
+          status?: "pending" | "approved" | "rejected";
+          reason?: string;
+          requested_starts_at?: string | null;
+          requested_ends_at?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          resolution_note?: string | null;
           created_at?: string;
         }
       >;
@@ -314,7 +465,12 @@ export type Database = {
           user_id: string;
           appointment_id: string | null;
           channel: "email" | "whatsapp";
-          event: "confirmation" | "cancellation" | "reminder_24h" | "reminder_1h" | "access_link";
+          event:
+            | "confirmation"
+            | "cancellation"
+            | "reminder_24h"
+            | "reminder_1h"
+            | "access_link";
           status: "queued" | "sent" | "failed";
           scheduled_for: string;
           sent_at: string | null;
@@ -326,7 +482,12 @@ export type Database = {
           user_id: string;
           appointment_id?: string | null;
           channel: "email" | "whatsapp";
-          event: "confirmation" | "cancellation" | "reminder_24h" | "reminder_1h" | "access_link";
+          event:
+            | "confirmation"
+            | "cancellation"
+            | "reminder_24h"
+            | "reminder_1h"
+            | "access_link";
           status?: "queued" | "sent" | "failed";
           scheduled_for: string;
           sent_at?: string | null;
@@ -338,7 +499,12 @@ export type Database = {
           user_id?: string;
           appointment_id?: string | null;
           channel?: "email" | "whatsapp";
-          event?: "confirmation" | "cancellation" | "reminder_24h" | "reminder_1h" | "access_link";
+          event?:
+            | "confirmation"
+            | "cancellation"
+            | "reminder_24h"
+            | "reminder_1h"
+            | "access_link";
           status?: "queued" | "sent" | "failed";
           scheduled_for?: string;
           sent_at?: string | null;
@@ -393,6 +559,37 @@ export type Database = {
           p_ends_at: string;
         };
         Returns: string;
+      };
+      get_professional_availability: {
+        Args: {
+          p_professional_id: string;
+          p_from: string;
+          p_to: string;
+        };
+        Returns: Array<{
+          starts_at: string;
+          ends_at: string;
+          local_date: string;
+          timezone: string;
+        }>;
+      };
+      request_appointment_change: {
+        Args: {
+          p_appointment_id: string;
+          p_kind: "cancellation" | "reschedule";
+          p_reason: string;
+          p_starts_at?: string | null;
+          p_ends_at?: string | null;
+        };
+        Returns: Json;
+      };
+      resolve_appointment_change_request: {
+        Args: {
+          p_request_id: string;
+          p_approve: boolean;
+          p_resolution_note?: string | null;
+        };
+        Returns: undefined;
       };
     };
     Enums: Record<string, never>;

@@ -5,10 +5,14 @@ The app now uses Supabase Auth and Postgres as its application identity and data
 ## 1. Create the Supabase project and schema
 
 1. Create a Supabase project and open **SQL Editor**.
-2. Run [`migrations/0001_gl_saude.sql`](./migrations/0001_gl_saude.sql), followed by [`migrations/0002_patient_profiles_and_dependents.sql`](./migrations/0002_patient_profiles_and_dependents.sql).
-3. Confirm that the tables exist under `public`: `profiles`, `patient_profiles`, `clinics`, `professionals`, `appointments`, `payments`, `clinical_documents`, and `notifications`.
+2. Run migrations [`0001`](./migrations/0001_gl_saude.sql), [`0002`](./migrations/0002_patient_profiles_and_dependents.sql), [`0003`](./migrations/0003_professional_scheduling.sql), and [`0004`](./migrations/0004_appointment_changes.sql), in order.
+3. Confirm that the tables exist under `public`: `profiles`, `patient_profiles`, `clinics`, `professionals`, `professional_schedules`, `professional_schedule_exceptions`, `appointments`, `appointment_history`, `appointment_change_requests`, `payments`, `clinical_documents`, and `notifications`.
 
-The first migration creates the original schema; the second adds patient identities, dependent authorization, account-consent records, and appointment actor/patient links without deleting existing rows. It creates missing default patient application profiles for existing Auth users and backfills a self patient profile for each. Both migrations enable RLS for their tables. New Auth users receive an application profile and patient profile; role and clinic assignments are intentionally not user-editable.
+The first migration creates the original schema; the second adds patient identities, dependent authorization, account-consent records, and appointment actor/patient links without deleting existing rows. It creates missing default patient application profiles for existing Auth users and backfills a self patient profile for each. The migrations enable RLS for their tables. New Auth users receive an application profile and patient profile; role and clinic assignments are intentionally not user-editable.
+
+The third migration adds each clinic's IANA time zone, recurring professional schedules, schedule exceptions, and a patient-only availability function. Booking and rescheduling now validate that the selected interval matches an active schedule slot and does not overlap a blocked period. Staff access to schedule records is scoped to the professional's own schedule, the operator's assigned clinic, or the administrator role.
+
+The fourth migration adds an append-only appointment history and a clinic-reviewed change request flow. Patients can cancel temporary holds immediately or request cancellation/rescheduling of confirmed appointments; operators can review requests only for their own clinic, while administrators can review all clinics. Approved reschedules revalidate availability inside the database transaction.
 
 The active project previously returned `Could not find the table 'public.profiles' in the schema cache`. Supabase Auth can create a session without the application schema; the `/auth.me` query then failed, and the UI incorrectly fell back to the login form. Applying migration `0001` creates the missing profile table/trigger; `0002` enables the new dependent features. The app now shows the underlying profile error instead of silently appearing logged out.
 
@@ -72,6 +76,18 @@ corepack pnpm dev
 - The server validates the Supabase access token and loads the user's trusted profile in [`server/supabase.ts`](../server/supabase.ts) and [`server/_core/context.ts`](../server/_core/context.ts).
 - Patient profile CRUD is in the `patientProfiles` tRPC router; row ownership is enforced by RLS. Ending a dependent relationship archives the profile, preserving appointment and clinical history.
 - Appointment create/list/update/delete examples are in [`client/src/lib/appointments.ts`](../client/src/lib/appointments.ts). Creating and rescheduling go through database functions that check the caller and prevent overlapping reservations; new appointments record both `patient_profile_id` (who receives care) and `booked_by` (who made the booking). Reads and deletes are protected by RLS.
+- Configure at least one active row in `professional_schedules` for each professional before offering booking. `weekday` uses PostgreSQL numbering (Sunday `0` through Saturday `6`), `starts_at`/`ends_at` are local clinic times, and `slot_duration_minutes` determines the exact duration of each appointment. Set the clinic's `timezone` to its valid IANA zone. Add `professional_schedule_exceptions` rows to block leave, breaks, or other unavailable periods. Without a configured schedule, no appointment slots are offered.
+- Until schedule administration is available in the application, an authorized administrator can configure a recurring schedule through the Supabase SQL Editor:
+
+  ```sql
+  insert into public.professional_schedules (
+    professional_id, clinic_id, weekday, starts_at, ends_at, slot_duration_minutes
+  )
+  values ('PROFESSIONAL_UUID', 'CLINIC_UUID', 1, '09:00', '12:00', 30);
+  ```
+
+  Replace the placeholders with real IDs and repeat for each working day or separate interval. Weekday `1` is Monday. Do not copy example UUIDs or schedule data into production.
+
 - The patient booking and appointment history screens use the Supabase-backed tRPC procedures. New appointments remain `held` for ten minutes.
 
 Payment confirmation is deliberately not exposed by the app: a browser must never be allowed to mark its own payment as paid. Connect a payment provider and verify its signed webhook on the server before changing payment or appointment status. The `payments` table has no client write policy.

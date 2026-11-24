@@ -81,12 +81,18 @@ function authErrorMessage(error: unknown) {
   return message || "Não foi possível concluir a solicitação. Tente novamente.";
 }
 
-export default function SupabaseLogin() {
+export default function SupabaseLogin({
+  initialMode = "sign_in",
+  onBackToHome,
+}: {
+  initialMode?: "sign_in" | "sign_up";
+  onBackToHome?: () => void;
+}) {
   const previewOnly = !isSupabaseConfigured;
   const [mode, setMode] = useState<AuthMode>(() =>
     typeof window !== "undefined" && window.location.hash.includes("type=recovery")
       ? "update_password"
-      : "sign_in"
+      : initialMode
   );
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -412,6 +418,15 @@ export default function SupabaseLogin() {
         <section className="flex items-center justify-center p-4 sm:p-8">
           <div className="w-full max-w-2xl">
             <div className="mb-7 lg:hidden"><BrandLogo /></div>
+            {onBackToHome && (
+              <button
+                type="button"
+                onClick={onBackToHome}
+                className="mb-5 text-sm font-semibold text-[#087A92] hover:underline"
+              >
+                ← Voltar ao início
+              </button>
+            )}
             <div className="mb-6">
               <p className="mb-2 text-sm font-semibold uppercase tracking-[0.16em] text-[#18AFA0]">
                 Bem-vindo à GGL saude

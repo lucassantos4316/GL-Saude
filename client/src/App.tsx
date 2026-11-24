@@ -10,6 +10,8 @@ import PasswordRecovery from "./pages/PasswordRecovery";
 function Router() {
   return <Switch>
     <Route path="/" component={Home} />
+    <Route path="/entrar" component={Home} />
+    <Route path="/cadastro" component={Home} />
     <Route path="/recuperar-senha" component={PasswordRecovery} />
     <Route path="/dashboard/:role" component={Home} />
     <Route path="/404" component={NotFound} />

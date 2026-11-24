@@ -5,9 +5,14 @@ vi.mock("./db", () => ({
   deleteHeldAppointment: vi.fn(async () => undefined),
   getUserProfile: vi.fn(),
   listAllAppointments: vi.fn(async () => []),
-  listAppointmentsForPatient: vi.fn(async () => []),
+  listClinicalDocumentsForAppointment: vi.fn(async () => []),
+  listPatientAppointmentsWithDetails: vi.fn(async () => []),
   listAppointmentsForProfessional: vi.fn(async () => []),
+  listPendingAppointmentChangeRequests: vi.fn(async () => []),
   listProfessionals: vi.fn(async () => []),
+  listProfessionalAvailability: vi.fn(async () => []),
+  requestAppointmentChange: vi.fn(async () => ({ status: "pending_review" })),
+  resolveAppointmentChangeRequest: vi.fn(async () => undefined),
   updateHeldAppointment: vi.fn(async () => "1c5e1f4a-0c25-42df-9ed0-98a5bb8cfd28"),
   updateUserProfile: vi.fn(),
 }));
@@ -16,11 +21,12 @@ import { createHeldAppointment } from "./db";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 
-type Role = "patient" | "doctor" | "operator";
+type Role = "patient" | "doctor" | "operator" | "admin";
 const ids = {
   patient: "61c39c17-7401-41e7-9e2d-7bed9ade60a0",
   doctor: "3e48090f-9854-4a2f-8984-1339d4c0ca52",
   operator: "091d45df-c5dc-4ed8-b160-525148eb7123",
+  admin: "b2178ab5-4378-4e84-9d98-46fbf5991bfd",
 };
 
 function context(role: Role): TrpcContext {
@@ -124,5 +130,25 @@ describe("GL Saúde role authorization", () => {
         caller.clinic.deleteHeldSlot({ appointmentId: input.professionalId })
       ).rejects.toMatchObject({ code: "FORBIDDEN" });
     }
+  });
+
+  it("limits appointment-change review to operators and administrators", async () => {
+    const patient = appRouter.createCaller(context("patient"));
+    const doctor = appRouter.createCaller(context("doctor"));
+    const operator = appRouter.createCaller(context("operator"));
+    const admin = appRouter.createCaller(context("admin"));
+    const request = {
+      requestId: "9f1ca2c8-f4f2-4c97-9db0-5472d240a6ea",
+      approve: true,
+    };
+
+    await expect(patient.operator.pendingAppointmentChanges()).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    await expect(doctor.operator.resolveAppointmentChange(request)).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    await expect(operator.operator.pendingAppointmentChanges()).resolves.toEqual([]);
+    await expect(admin.operator.resolveAppointmentChange(request)).resolves.toBeUndefined();
   });
 });

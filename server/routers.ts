@@ -1,5 +1,10 @@
 import { systemRouter } from "./_core/systemRouter";
-import { protectedProcedure, publicProcedure, roleProcedure, router } from "./_core/trpc";
+import {
+  protectedProcedure,
+  publicProcedure,
+  roleProcedure,
+  router,
+} from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -9,12 +14,18 @@ import {
   deleteHeldAppointment,
   hasCurrentAccountConsent,
   listAllAppointments,
+  listClinicalDocumentsForAppointment,
   listAppointmentsForPatient,
+  listPatientAppointmentsWithDetails,
   listAppointmentsForProfessional,
   listPatientProfiles,
+  listProfessionalAvailability,
+  listPendingAppointmentChangeRequests,
   listPendingAdultDependents,
   listProfessionals,
   recordCurrentAccountConsent,
+  requestAppointmentChange,
+  resolveAppointmentChangeRequest,
   updateHeldAppointment,
   updatePatientProfile,
   updateSelfPatientProfile,
@@ -25,19 +36,36 @@ import { isAdult, isValidCpf, onlyDigits } from "../shared/registration";
 
 const patientProfileFields = z.object({
   fullName: z.string().trim().min(3).max(255),
-  cpf: z.string().trim().optional().nullable().transform((value) => {
-    const digits = onlyDigits(value ?? "");
-    return digits || null;
-  }).refine((value) => value === null || isValidCpf(value), "Informe um CPF válido."),
+  cpf: z
+    .string()
+    .trim()
+    .optional()
+    .nullable()
+    .transform(value => {
+      const digits = onlyDigits(value ?? "");
+      return digits || null;
+    })
+    .refine(
+      value => value === null || isValidCpf(value),
+      "Informe um CPF válido."
+    ),
   birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  phone: z.string().trim().optional().nullable().transform((value) => {
-    const digits = onlyDigits(value ?? "");
-    return digits || null;
-  }),
+  phone: z
+    .string()
+    .trim()
+    .optional()
+    .nullable()
+    .transform(value => {
+      const digits = onlyDigits(value ?? "");
+      return digits || null;
+    }),
   relationship: z.string().trim().min(2).max(80),
-  consentEmail: z.string().trim().toLowerCase()
+  consentEmail: z
+    .string()
+    .trim()
+    .toLowerCase()
     .pipe(z.union([z.email(), z.literal("")]))
-    .transform((value) => value || null),
+    .transform(value => value || null),
   legalGuardianConfirmed: z.boolean(),
 });
 
@@ -66,39 +94,69 @@ function validatePatientProfile(
     context.addIssue({
       code: "custom",
       path: ["consentEmail"],
-      message: "Informe o e-mail próprio do dependente adulto para autorização.",
+      message:
+        "Informe o e-mail próprio do dependente adulto para autorização.",
     });
   }
 }
 
-const patientProfileInput = patientProfileFields.superRefine(validatePatientProfile);
+const patientProfileInput = patientProfileFields.superRefine(
+  validatePatientProfile
+);
 const patientProfileUpdateInput = patientProfileFields
   .extend({ profileId: z.string().uuid() })
   .superRefine(validatePatientProfile);
-const selfPatientProfileInput = z.object({
-  fullName: z.string().trim().min(3).max(255),
-  cpf: z.string().trim().transform(onlyDigits).refine(isValidCpf, "Informe um CPF válido."),
-  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  phone: z.string().trim().optional().nullable().transform((value) => {
-    const digits = onlyDigits(value ?? "");
-    return digits || null;
-  }).refine((value) => value === null || value.length >= 10, "Informe um telefone com DDD."),
-}).superRefine((input, context) => {
-  const birthDate = new Date(`${input.birthDate}T00:00:00`);
-  if (!Number.isFinite(birthDate.getTime()) || birthDate >= new Date() || !isAdult(input.birthDate)) {
-    context.addIssue({
-      code: "custom",
-      path: ["birthDate"],
-      message: "O titular da conta deve ser maior de 18 anos.",
-    });
-  }
-});
+const selfPatientProfileInput = z
+  .object({
+    fullName: z.string().trim().min(3).max(255),
+    cpf: z
+      .string()
+      .trim()
+      .transform(onlyDigits)
+      .refine(isValidCpf, "Informe um CPF válido."),
+    birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    phone: z
+      .string()
+      .trim()
+      .optional()
+      .nullable()
+      .transform(value => {
+        const digits = onlyDigits(value ?? "");
+        return digits || null;
+      })
+      .refine(
+        value => value === null || value.length >= 10,
+        "Informe um telefone com DDD."
+      ),
+  })
+  .superRefine((input, context) => {
+    const birthDate = new Date(`${input.birthDate}T00:00:00`);
+    if (
+      !Number.isFinite(birthDate.getTime()) ||
+      birthDate >= new Date() ||
+      !isAdult(input.birthDate)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["birthDate"],
+        message: "O titular da conta deve ser maior de 18 anos.",
+      });
+    }
+  });
 
-function assertAdultConsentEmail(consentEmail: string | null, accountEmail: string | null) {
-  if (consentEmail && accountEmail && consentEmail === accountEmail.toLowerCase()) {
+function assertAdultConsentEmail(
+  consentEmail: string | null,
+  accountEmail: string | null
+) {
+  if (
+    consentEmail &&
+    accountEmail &&
+    consentEmail === accountEmail.toLowerCase()
+  ) {
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: "Use o e-mail próprio do paciente adulto, diferente do e-mail do responsável.",
+      message:
+        "Use o e-mail próprio do paciente adulto, diferente do e-mail do responsável.",
     });
   }
 }
@@ -127,12 +185,23 @@ export const appRouter = router({
       createdAt: ctx.user.createdAt,
     })),
     update: protectedProcedure
-      .input(z.object({
-        name: z.string().trim().min(1).max(255),
-        email: z.string().trim().max(320).pipe(z.union([z.email(), z.literal("")])),
-      }))
+      .input(
+        z.object({
+          name: z.string().trim().min(1).max(255),
+          email: z
+            .string()
+            .trim()
+            .max(320)
+            .pipe(z.union([z.email(), z.literal("")])),
+        })
+      )
       .mutation(async ({ ctx, input }) => {
-        const updated = await updateUserProfile(ctx.supabase, ctx.user.id, input.name, input.email || null);
+        const updated = await updateUserProfile(
+          ctx.supabase,
+          ctx.user.id,
+          input.name,
+          input.email || null
+        );
         if (!updated) {
           throw new TRPCError({
             code: "NOT_FOUND",
@@ -183,7 +252,8 @@ export const appRouter = router({
         if (!updated) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: "O perfil do dependente não foi encontrado ou não pode ser alterado.",
+            message:
+              "O perfil do dependente não foi encontrado ou não pode ser alterado.",
           });
         }
         return updated;
@@ -199,7 +269,8 @@ export const appRouter = router({
         if (!archived) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: "O perfil do dependente não foi encontrado ou já foi removido.",
+            message:
+              "O perfil do dependente não foi encontrado ou já foi removido.",
           });
         }
         return { success: true };
@@ -218,45 +289,184 @@ export const appRouter = router({
   roles: router({
     current: protectedProcedure.query(({ ctx }) => ({
       role: ctx.user.role,
-      label: ctx.user.role === "admin"
-        ? "Administrador"
-        : ctx.user.role === "doctor"
-          ? "Médico"
-          : ctx.user.role === "operator"
-            ? "Operador"
-            : "Paciente",
-      permissions: ctx.user.role === "admin"
-        ? ["manage_clinic_schedule", "review_dependent_authorizations"]
-        : ctx.user.role === "doctor"
-          ? ["view_own_schedule", "view_reports"]
-          : ctx.user.role === "operator"
-            ? ["manage_clinic_schedule", "book_for_patient", "reschedule_appointments", "cancel_appointments"]
-            : ["search_professionals", "book_appointments", "pay_appointments", "view_own_history", "cancel_own_appointments"],
+      label:
+        ctx.user.role === "admin"
+          ? "Administrador"
+          : ctx.user.role === "doctor"
+            ? "Médico"
+            : ctx.user.role === "operator"
+              ? "Operador"
+              : "Paciente",
+      permissions:
+        ctx.user.role === "admin"
+          ? ["manage_clinic_schedule", "review_dependent_authorizations"]
+          : ctx.user.role === "doctor"
+            ? ["view_own_schedule", "view_reports"]
+            : ctx.user.role === "operator"
+              ? [
+                  "manage_clinic_schedule",
+                  "book_for_patient",
+                  "reschedule_appointments",
+                  "cancel_appointments",
+                ]
+              : [
+                  "search_professionals",
+                  "book_appointments",
+                  "pay_appointments",
+                  "view_own_history",
+                  "cancel_own_appointments",
+                ],
     })),
   }),
 
   doctor: router({
-    dashboard: roleProcedure("doctor").query(({ ctx }) => ({ role: ctx.user.role, title: "Painel do Médico", capabilities: ["agenda diária e semanal", "relatórios"] })),
-    agenda: roleProcedure("doctor").query(({ ctx }) => listAppointmentsForProfessional(ctx.supabase, ctx.user.id)),
+    dashboard: roleProcedure("doctor").query(({ ctx }) => ({
+      role: ctx.user.role,
+      title: "Painel do Médico",
+      capabilities: ["agenda diária e semanal", "relatórios"],
+    })),
+    agenda: roleProcedure("doctor").query(({ ctx }) =>
+      listAppointmentsForProfessional(ctx.supabase, ctx.user.id)
+    ),
   }),
 
   operator: router({
-    dashboard: roleProcedure("operator", "admin").query(({ ctx }) => ({ role: ctx.user.role, title: "Painel do Operador", capabilities: ["agendar em nome do paciente", "cancelar", "reagendar", "visualizar agenda da clínica"] })),
-    clinicAgenda: roleProcedure("operator", "admin").input(z.object({ clinicId: z.string().uuid().optional() }).optional()).query(({ ctx, input }) => listAllAppointments(ctx.supabase, input?.clinicId ?? ctx.user.clinicId)),
+    dashboard: roleProcedure("operator", "admin").query(({ ctx }) => ({
+      role: ctx.user.role,
+      title: "Painel do Operador",
+      capabilities: [
+        "agendar em nome do paciente",
+        "cancelar",
+        "reagendar",
+        "visualizar agenda da clínica",
+      ],
+    })),
+    clinicAgenda: roleProcedure("operator", "admin")
+      .input(z.object({ clinicId: z.string().uuid().optional() }).optional())
+      .query(({ ctx, input }) =>
+        listAllAppointments(ctx.supabase, input?.clinicId ?? ctx.user.clinicId)
+      ),
+    pendingAppointmentChanges: roleProcedure("operator", "admin").query(
+      ({ ctx }) => listPendingAppointmentChangeRequests(ctx.supabase)
+    ),
+    resolveAppointmentChange: roleProcedure("operator", "admin")
+      .input(
+        z.object({
+          requestId: z.string().uuid(),
+          approve: z.boolean(),
+          resolutionNote: z.string().trim().max(500).optional(),
+        })
+      )
+      .mutation(({ ctx, input }) =>
+        resolveAppointmentChangeRequest(
+          ctx.supabase,
+          input.requestId,
+          input.approve,
+          input.resolutionNote ?? null
+        )
+      ),
   }),
 
   patient: router({
-    dashboard: roleProcedure("patient").query(({ ctx }) => ({ role: ctx.user.role, title: "Painel do Paciente", capabilities: ["buscar profissionais", "agendar consulta ou exame", "pagar", "consultar histórico", "cancelar", "reagendar"] })),
+    dashboard: roleProcedure("patient").query(({ ctx }) => ({
+      role: ctx.user.role,
+      title: "Painel do Paciente",
+      capabilities: [
+        "buscar profissionais",
+        "agendar consulta ou exame",
+        "pagar",
+        "consultar histórico",
+        "cancelar",
+        "reagendar",
+      ],
+    })),
   }),
 
   clinic: router({
-    professionals: publicProcedure.input(z.object({ specialty: z.string().optional(), clinicId: z.string().uuid().optional() }).optional()).query(({ ctx, input }) => listProfessionals(ctx.supabase, input)),
-    myAppointments: roleProcedure("patient").query(({ ctx }) => listAppointmentsForPatient(ctx.supabase, ctx.user.id)),
-    holdSlot: roleProcedure("patient").input(z.object({ professionalId: z.string().uuid(), clinicId: z.string().uuid(), kind: z.enum(["consultation", "exam"]), startsAt: z.coerce.date(), endsAt: z.coerce.date(), patientProfileId: z.string().uuid() })).mutation(({ ctx, input }) => createHeldAppointment(ctx.supabase, input)),
-    updateHeldSlot: roleProcedure("patient").input(z.object({ appointmentId: z.string().uuid(), kind: z.enum(["consultation", "exam"]), startsAt: z.coerce.date(), endsAt: z.coerce.date() })).mutation(({ ctx, input }) => updateHeldAppointment(ctx.supabase, input.appointmentId, input)),
-    deleteHeldSlot: roleProcedure("patient").input(z.object({ appointmentId: z.string().uuid() })).mutation(({ ctx, input }) => deleteHeldAppointment(ctx.supabase, input.appointmentId)),
+    professionals: publicProcedure
+      .input(
+        z
+          .object({
+            specialty: z.string().optional(),
+            clinicId: z.string().uuid().optional(),
+          })
+          .optional()
+      )
+      .query(({ ctx, input }) => listProfessionals(ctx.supabase, input)),
+    availability: roleProcedure("patient")
+      .input(
+        z.object({
+          professionalId: z.string().uuid(),
+          from: z.string().date(),
+          to: z.string().date(),
+        })
+      )
+      .query(({ ctx, input }) =>
+        listProfessionalAvailability(
+          ctx.supabase,
+          input.professionalId,
+          input.from,
+          input.to
+        )
+      ),
+    myAppointments: roleProcedure("patient").query(({ ctx }) =>
+      listPatientAppointmentsWithDetails(ctx.supabase, ctx.user.id)
+    ),
+    appointmentDocuments: roleProcedure("patient")
+      .input(z.object({ appointmentId: z.string().uuid() }))
+      .query(({ ctx, input }) =>
+        listClinicalDocumentsForAppointment(ctx.supabase, input.appointmentId)
+      ),
+    requestChange: roleProcedure("patient")
+      .input(
+        z.discriminatedUnion("kind", [
+          z.object({
+            appointmentId: z.string().uuid(),
+            kind: z.literal("cancellation"),
+            reason: z.string().trim().min(2).max(500),
+          }),
+          z.object({
+            appointmentId: z.string().uuid(),
+            kind: z.literal("reschedule"),
+            reason: z.string().trim().min(2).max(500),
+            startsAt: z.coerce.date(),
+            endsAt: z.coerce.date(),
+          }),
+        ])
+      )
+      .mutation(({ ctx, input }) =>
+        requestAppointmentChange(ctx.supabase, input)
+      ),
+    holdSlot: roleProcedure("patient")
+      .input(
+        z.object({
+          professionalId: z.string().uuid(),
+          clinicId: z.string().uuid(),
+          kind: z.enum(["consultation", "exam"]),
+          startsAt: z.coerce.date(),
+          endsAt: z.coerce.date(),
+          patientProfileId: z.string().uuid(),
+        })
+      )
+      .mutation(({ ctx, input }) => createHeldAppointment(ctx.supabase, input)),
+    updateHeldSlot: roleProcedure("patient")
+      .input(
+        z.object({
+          appointmentId: z.string().uuid(),
+          kind: z.enum(["consultation", "exam"]),
+          startsAt: z.coerce.date(),
+          endsAt: z.coerce.date(),
+        })
+      )
+      .mutation(({ ctx, input }) =>
+        updateHeldAppointment(ctx.supabase, input.appointmentId, input)
+      ),
+    deleteHeldSlot: roleProcedure("patient")
+      .input(z.object({ appointmentId: z.string().uuid() }))
+      .mutation(({ ctx, input }) =>
+        deleteHeldAppointment(ctx.supabase, input.appointmentId)
+      ),
   }),
-
 });
 
 export type AppRouter = typeof appRouter;

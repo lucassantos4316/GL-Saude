@@ -12,6 +12,7 @@ import AppointmentChangeRequests from "@/components/AppointmentChangeRequests";
 import SupabaseLogin from "@/components/SupabaseLogin";
 import PublicLanding from "@/pages/PublicLanding";
 import { trpc } from "@/lib/trpc";
+import { isSupabaseConfigured } from "@/lib/supabase";
 import { ProfileNavigation, ProfilePage } from "@/components/ProfilePages";
 import type { ProfileSection } from "@/components/ProfilePages";
 import { clearAuthState } from "@shared/authFlow";
@@ -442,8 +443,20 @@ function Shell({
       <div className="lg:pl-64">
         <header className="sticky top-0 z-20 flex h-20 items-center justify-between border-b border-slate-100 bg-white/90 px-5 backdrop-blur-md sm:px-8">
           <div className="flex items-center gap-3 lg:hidden">
-            <Menu className="h-5 w-5 text-slate-500" />
             <BrandLogo compact />
+            <select
+              aria-label="Navegação principal"
+              value={active}
+              onChange={(event) => setActive(event.target.value)}
+              className="max-w-40 rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm text-slate-700"
+            >
+              {nav.map((item) => (
+                <option key={item.id} value={item.id}>{item.label}</option>
+              ))}
+              <option value="profile">Perfil</option>
+              <option value="edit-profile">Editar perfil</option>
+              <option value="my-data">Meus dados</option>
+            </select>
           </div>
           <div className="hidden lg:block">
             <p className="text-sm text-slate-400">
@@ -1422,6 +1435,24 @@ function PatientHistory() {
   );
 }
 
+function DemoPreviewPage({ title }: { title: string }) {
+  return (
+    <div className="space-y-5">
+      <div>
+        <h2 className="text-3xl font-bold tracking-tight">{title}</h2>
+        <p className="mt-2 text-slate-500">
+          Esta página pode ser explorada na demonstração. Conecte o Supabase para carregar e salvar dados reais.
+        </p>
+      </div>
+      <Card className="border-0 shadow-sm">
+        <CardContent className="p-6 text-sm text-slate-600">
+          Os dados e ações desta demonstração são apenas ilustrativos e não são persistidos.
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function AppContent({
   role,
   userName,
@@ -1429,6 +1460,7 @@ function AppContent({
   onChangeUnit,
   selectedUnit,
   isAdmin,
+  demoMode = false,
 }: {
   role: Role;
   userName: string;
@@ -1436,6 +1468,7 @@ function AppContent({
   onChangeUnit: () => void;
   selectedUnit: HealthcareUnit | null;
   isAdmin: boolean;
+  demoMode?: boolean;
 }) {
   const [entryRequest] = useState(() => {
     if (typeof window === "undefined") return null;
@@ -1474,7 +1507,24 @@ function AppContent({
   const profileSection = profileSections.includes(content as ProfileSection)
     ? (content as ProfileSection)
     : null;
-  const view = profileSection ? (
+  const demoProfileTitle = content === "profile"
+    ? "Perfil"
+    : content === "edit-profile"
+      ? "Editar perfil"
+      : "Meus dados";
+  const view = demoMode ? (
+    content === "overview" ? (
+      <Overview role={role} go={setActive} />
+    ) : content === "schedule" && role === "patient" ? (
+      <Booking onDone={() => setActive("overview")} />
+    ) : content === "history" && role === "patient" ? (
+      <PatientHistory />
+    ) : (
+      <DemoPreviewPage
+        title={profileSection ? demoProfileTitle : content === "dependents" ? "Pacientes e dependentes" : content === "agenda" ? role === "doctor" ? "Minha agenda" : "Agenda da clínica" : content === "patients" ? "Meus pacientes" : content === "reports" ? "Relatórios" : "Agendamento em nome do paciente"}
+      />
+    )
+  ) : profileSection ? (
     <ProfilePage section={profileSection} />
   ) : content === "overview" ? (
     <OverviewDashboard role={role} go={setActive} />
@@ -1509,6 +1559,11 @@ function AppContent({
       active={active}
       setActive={setActive}
     >
+      {demoMode && (
+        <p className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status">
+          Demonstração: dados de exemplo. Nenhuma alteração será salva.
+        </p>
+      )}
       {profileSection && (
         <ProfileNavigation
           active={profileSection}
@@ -1629,6 +1684,7 @@ export default function Home() {
   const [location, navigate] = useLocation();
   const routePath = location.split("?")[0];
   const { user, logout, loading, error, hasSession, refresh } = useAuth();
+  const [demoRole, setDemoRole] = useState<Role | null>(null);
   const utils = trpc.useUtils();
   const accountConsent = trpc.accountConsent.current.useQuery(undefined, {
     enabled: Boolean(user),
@@ -1667,6 +1723,25 @@ export default function Home() {
       <div className="flex min-h-screen items-center justify-center text-sm text-slate-500">
         Verificando sua sessão…
       </div>
+    );
+  }
+
+  if (!isSupabaseConfigured && demoRole) {
+    const demoNames: Record<Role, string> = {
+      patient: "Paciente demonstração",
+      doctor: "Médico demonstração",
+      operator: "Operador demonstração",
+    };
+    return (
+      <AppContent
+        role={demoRole}
+        userName={demoNames[demoRole]}
+        selectedUnit={null}
+        isAdmin={false}
+        demoMode
+        onChangeUnit={() => toast.info("A seleção de unidade estará disponível com a configuração do Supabase.")}
+        onExit={() => setDemoRole(null)}
+      />
     );
   }
 
@@ -1726,8 +1801,13 @@ export default function Home() {
     );
   }
 
-  if (!user || !role) {
-    if (routePath === "/" && !forceLogin && !recoveringPassword) {
+  if (forceLogin || recoveringPassword || !user || !role) {
+    if (
+      (!user || !role) &&
+      routePath === "/" &&
+      !forceLogin &&
+      !recoveringPassword
+    ) {
       return (
         <PublicLanding
           onLogin={() => navigate("/entrar")}
@@ -1763,6 +1843,7 @@ export default function Home() {
         key={routePath}
         initialMode={routePath === "/cadastro" ? "sign_up" : "sign_in"}
         onBackToHome={() => navigate("/")}
+        onEnterDemo={setDemoRole}
       />
     );
   }

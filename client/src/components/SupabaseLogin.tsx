@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import { BrandLogo } from "./BrandLogo";
 
 type AuthMode = "sign_in" | "sign_up" | "update_password";
+type DemoRole = "patient" | "doctor" | "operator";
 type AccountPurpose = "self" | "minor" | "adult";
 type Address = {
   postalCode: string;
@@ -84,9 +85,11 @@ function authErrorMessage(error: unknown) {
 export default function SupabaseLogin({
   initialMode = "sign_in",
   onBackToHome,
+  onEnterDemo,
 }: {
   initialMode?: "sign_in" | "sign_up";
   onBackToHome?: () => void;
+  onEnterDemo?: (role: DemoRole) => void;
 }) {
   const previewOnly = !isSupabaseConfigured;
   const [mode, setMode] = useState<AuthMode>(() =>
@@ -448,13 +451,37 @@ export default function SupabaseLogin({
             <Card className="border-0 bg-white shadow-[0_20px_60px_rgba(8,122,146,0.10)]">
               <CardContent className="space-y-5 p-5 sm:p-7">
                 {previewOnly && (
-                  <p
-                    className="rounded-xl bg-amber-50 p-3 text-sm leading-relaxed text-amber-800"
-                    role="status"
-                  >
-                    Modo de visualização: configure VITE_SUPABASE_URL e
-                    VITE_SUPABASE_ANON_KEY para habilitar a autenticação.
-                  </p>
+                  <div className="space-y-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
+                    <p role="status" className="leading-relaxed">
+                      Modo de visualização: configure VITE_SUPABASE_URL e
+                      VITE_SUPABASE_ANON_KEY para habilitar a autenticação.
+                    </p>
+                    {onEnterDemo && (
+                      <div className="space-y-2 border-t border-amber-200 pt-3">
+                        <p className="font-semibold">Explorar demonstração</p>
+                        <p className="text-xs leading-relaxed text-amber-800">
+                          Navegue pelas páginas com dados de exemplo. Nenhuma alteração será salva.
+                        </p>
+                        <div className="grid gap-2 sm:grid-cols-3">
+                          {([
+                            ["patient", "Paciente"],
+                            ["doctor", "Médico"],
+                            ["operator", "Operador"],
+                          ] as const).map(([role, label]) => (
+                            <Button
+                              key={role}
+                              type="button"
+                              variant="outline"
+                              onClick={() => onEnterDemo(role)}
+                              className="border-amber-300 bg-white text-amber-950 hover:bg-amber-100"
+                            >
+                              {label}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
                 {mode === "sign_up" && (
                   <div className="flex items-center gap-3" aria-label={`Etapa ${step} de 2`}>
